@@ -1,5 +1,10 @@
 import numpy as np
 import math
+import image_sampling as sampler
+import stylenet
+import load_model   # temporal import
+from torch import Tensor
+
 
 def gaussian_KL(p,q):
     """
@@ -19,10 +24,22 @@ def gaussian_KL(p,q):
 
     return kl
 
-if __name__ == "__main__":
+def io_test():
     # i/o test
     p = [np.array([1, 1]),np.array([[1, 0],[0, 0.5]])]
     q = [np.array([1, 1]),np.array([[1, 0],[0, 1]])]
 
     print(gaussian_KL(p,q))
 
+if __name__ == "__main__":
+    features = []
+    model = load_model.model
+    #model = model.cuda()
+    model.train(False)
+    size = 10
+
+    for i in range(size):
+        tensors = sampler.tag_sampling(1, 1)
+        features.append(model.forward(Tensor(tensors)).detach().numpy())
+
+    print(features)
