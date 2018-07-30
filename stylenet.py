@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 
-N_tags = 40
+N_tags = 66
 
 class Stylenet(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super(Stylenet, self).__init__()
         self.conv1 = nn.Conv2d(3,64,(3, 3),(1, 1),(1, 1))
         self.conv2 = nn.Conv2d(64,64,(3, 3),(1, 1),(1, 1))
         self.conv2_drop = nn.Dropout(0.25)
@@ -21,7 +21,7 @@ class Stylenet(nn.Module):
         self.conv6_drop = nn.Dropout(0.25)
         self.pool3 =nn.MaxPool2d((4, 4),(4, 4))
         self.bn3 = nn.BatchNorm2d(256,0.001,0.9,True)
-        self.conv7 = nn.Conv2d(256,128,(3, 3),(1, 1),(1, 1))
+        self.conv7 = nn.Conv2d(256,128,(1, 1))
         self.linear1 = nn.Linear(3072,128)
         self.linear2 = nn.Linear(128, N_tags)
         self.logsoftmax = nn.LogSoftmax()
@@ -85,12 +85,12 @@ modelA = nn.Sequential( # Sequential,
 	nn.Conv2d(256,128,(1, 1)),
 	nn.ReLU(),
 	Lambda(lambda x: x.view(x.size(0),-1)), # Reshape,
-	nn.Sequential(Lambda(lambda x: x.view(1,-1) if 1==len(x.size()) else x ),nn.Linear(3072,128)), # Linear,
+	nn.Sequential(Lambda(lambda x: x.view(1,-1) if 1==len(x.size()) else x ),nn.Linear(3072,128)) # Linear,
     #nn.Linear(128, 40)
 )
 
 modelA.load_state_dict(torch.load("stylenet.pth"))
-modelB = Net()
+modelB = Stylenet()
 
 from collections import OrderedDict
 
@@ -101,7 +101,7 @@ for keyA, keyB in zip(modelA.state_dict(), modelB.state_dict()):
     print('Changing {} to {}'.format(keyA, keyB))
     state_dict = OrderedDict((keyB if k == keyA else k, v) for k, v in state_dict.items())
 
-state_dict['linear2.weight'] = torch.ones([128, N_tags])
+state_dict['linear2.weight'] = torch.ones([N_tags, 128])
 state_dict['linear2.bias'] = torch.ones([N_tags])
 
 # state_dict should keep the old values with new keys
@@ -109,4 +109,3 @@ modelB.load_state_dict(state_dict)
 
 if __name__ == "__main__":
     print("model {}".format(modelB))
-
