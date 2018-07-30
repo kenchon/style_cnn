@@ -33,46 +33,54 @@ def pix2tensor(pixel_img):
     return preprocess(pixel_img)
 
 def id2pix(img_id):
-    return Image.open(photos[int(photos[img_id][0])].strip())
+    img_id = img_id.strip()
+    #return Image.open(photos[int(photos[img_id][0])].strip())
+    return Image.open("/home/ryugo/source/fashion550k/photos/" + img_id)
 
 def single_sampling(batch_size):
     u""" sampling method for classification
     input: batch_size
     output: tensor of (batch_size, 3, 384, 256)
     """
-
-    label_array = np.load("./noisy.npy")     # load numpy based labels
     batch_tensors = torch.Tensor(batch_size, 3, 384, 256)
-    labels = np.array(0)
+    labels = []
 
     count = 0
-<<<<<<< HEAD
-    while count != (batch_size):
-    #    try:
-        idx = random.randint(0, N_img)
-        batch_tensors[count] = pix2tensor(id2pix(photos[idx].strip()))
-        print(photos[idx])
-        labels.append(label_array(idx))
-        count += 1
-        """
-        except:
-            batch_tensors[count] = random.randint(0, N_img)
-            labels = numpy.delete(labels, len(labels), axis = 0)    # delete last row if error occured
-        """
-=======
 
     while count != (batch_size):
+        """
         try:
             idx = random.randint(0, N_img)
             batch_tensors[count] = pix2tensor(id2pix(photos[idx]))
             labels.append(label_array(idx))
             count += 1
         except:
-            batch[count] = random.randint(0, N_img)
+            idx = random.randint(0, N_img)
             labels = numpy.delete(labels, len(labels), axis = 0)    # delete last row if error occured
+        """
+        idx = random.randint(0, N_img)
+        batch_tensors[count] = pix2tensor(id2pix(photos[idx]))
+        labels.append(label_array[idx])
+        count += 1
+        print(count)
+        #idx = random.randint(0, N_img)
+        #labels = numpy.delete(labels, len(labels), axis = 0)    # delete last row if error occured
 
->>>>>>> 063042ff1f53abd79a0c4e27321d087ecc71607c
     return batch_tensors, labels
+
+def tag_sampling(size, tag_idx):
+    tensors = torch.Tensor(size, 3, 384, 256)
+    count = 0
+    photo_ids = np.where(label_array[:, tag_idx] == 1)[0]
+
+
+    while count != (size):
+        idx = random.randint(0, photo_ids.shape[0])     # randomly sample the photo id
+        tensors[count] = pix2tensor(id2pix(photos[idx]))
+        count += 1
+        print(count)
+
+    return tensors
 
 def triplet_sampling(row, batch):
     u""" sampling method for triplet learning
@@ -101,11 +109,11 @@ def triplet_sampling(row, batch):
         except:
             batch[count] = random.randint(0,len(row))
 
-    img = [ref_tensor,pos_tensor,neg_tensor]
-    sim = [sim_pos,sim_neg]
+    img = [ref_tensor, pos_tensor, neg_tensor]
+    sim = [sim_pos, sim_neg]
 
     return img, sim
 
 if __name__ == "__main__":
-    print(single_sampling(24)[1])
-
+    #print(single_sampling(24)[1])
+    print(tag_sampling(10, 24))
