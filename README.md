@@ -2,5 +2,6 @@
 implementation of proposed method
 
 - `train.py`: train code
-- `stylenet.py`: describes model structure
-- `image_sampling.py`: includes sampling operations
+- `stylenet.py`: CNN model described by PyTorch
+- `image_sampling.py`: sampling operations
+- `tag_dist.py`: compute KL distance between two distributions.
