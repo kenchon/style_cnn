@@ -34,12 +34,18 @@ def io_test():
 if __name__ == "__main__":
     features = []
     model = load_model.model
-    #model = model.cuda()
+    model = model.cuda()
     model.train(False)
-    size = 10
+
+    tensors = sampler.tag_sampling(100, 1)
+    features.append(model.forward(tensors.cuda()).detach().numpy())
+
+
+    """
+    size = 100
 
     for i in range(size):
         tensors = sampler.tag_sampling(1, 1)
         features.append(model.forward(Tensor(tensors)).detach().numpy())
-
+    """
     print(features)
