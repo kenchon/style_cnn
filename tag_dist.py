@@ -5,6 +5,8 @@ import stylenet
 import load_model   # temporal import
 from torch import Tensor
 
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
 
 def gaussian_KL(p,q):
     """
@@ -34,18 +36,15 @@ def io_test():
 if __name__ == "__main__":
     features = []
     model = load_model.model
+    #model = stylenet.modelA
     model = model.cuda()
     model.train(False)
 
-    tensors = sampler.tag_sampling(100, 1)
-    features.append(model.forward(tensors.cuda()).detach().numpy())
+    tensors = sampler.tag_sampling(50, 1)
+    print(tensors.shape)
+    features.append(model.forward(tensors.cuda()).cpu().detach().numpy())
 
-
-    """
-    size = 100
-
-    for i in range(size):
-        tensors = sampler.tag_sampling(1, 1)
-        features.append(model.forward(Tensor(tensors)).detach().numpy())
-    """
-    print(features)
+    pca = PCA(n_components=2)
+    x_pca = pca.fit_transform(features)
+    plt.scatter(x_pca)
+    plt.show()
