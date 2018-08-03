@@ -39,12 +39,34 @@ if __name__ == "__main__":
     #model = stylenet.modelA
     model = model.cuda()
     model.train(False)
-
+    """
     tensors = sampler.tag_sampling(50, 1)
     print(tensors.shape)
     features.append(model.forward(tensors.cuda()).cpu().detach().numpy())
+    features = np.array(features)[0]
+    print(features.shape)
 
     pca = PCA(n_components=2)
     x_pca = pca.fit_transform(features)
-    plt.scatter(x_pca)
+    plt.scatter(x_pca[:,0],x_pca[:,1])
+    plt.show()
+    """
+
+    plotlist = [0, 2]
+    itemlist = ["black","white"]
+
+    for i in plotlist:
+        print(i)
+        c = 0
+        features = []
+        for j in range(10):
+            tensors = sampler.tag_sampling(80, i)
+            features.append(model.forward(tensors.cuda()).cpu().detach().numpy())
+
+        features = np.array(features)[0]
+        pca = PCA(n_components=2)
+        x_pca = pca.fit_transform(features)
+        plt.scatter(x_pca[:,0], x_pca[:,1])
+        plt.legend(itemlist)
+        c+=1
     plt.show()
