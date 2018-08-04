@@ -8,6 +8,8 @@ from torch import Tensor
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 
+from mpl_toolkits.mplot3d import Axes3D
+
 def gaussian_KL(p,q):
     """
     input: p,q includes Gaussian parameters(μ, Σ)
@@ -52,21 +54,22 @@ if __name__ == "__main__":
     plt.show()
     """
 
-    plotlist = [0, 2]
-    itemlist = ["black","white"]
+    plotlist = [37,41,65]
+    itemlist = ["dress","jeans","belt"]
+
+    fig = plt.figure()
+    ax = Axes3D(fig)
 
     for i in plotlist:
-        print(i)
-        c = 0
         features = []
         for j in range(10):
             tensors = sampler.tag_sampling(80, i)
             features.append(model.forward(tensors.cuda()).cpu().detach().numpy())
 
         features = np.array(features)[0]
-        pca = PCA(n_components=2)
+        pca = PCA(n_components=3)
         x_pca = pca.fit_transform(features)
-        plt.scatter(x_pca[:,0], x_pca[:,1])
-        plt.legend(itemlist)
-        c+=1
+        ax.scatter3D(x_pca[:,0], x_pca[:,1], x_pca[:,2])
+        ax.legend(itemlist)
+
     plt.show()
