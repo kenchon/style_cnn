@@ -6,9 +6,12 @@ from PIL import Image
 import random
 import numpy as np
 import numpy
+from math import *
 
 
+#label_array = np.load("./verified.npy")     # load numpy based labels
 label_array = np.load("./noisy.npy")     # load numpy based labels
+
 
 with open("./photos.txt","r") as f:
     photos = f.readlines()
@@ -35,7 +38,7 @@ def pix2tensor(pixel_img):
 def id2pix(img_id):
     img_id = img_id.strip()
     #return Image.open(photos[int(photos[img_id][0])].strip())
-    return Image.open("/home/ryugo/source/fashion550k/photos/" + img_id)
+    return Image.open("../fashion550k/photos/" + img_id)
 
 def single_sampling(batch_size):
     u""" sampling method for classification
@@ -73,14 +76,12 @@ def tag_sampling(size, tag_idx):
     count = 0
     photo_ids = np.where(label_array[:, tag_idx] == 1)[0]
 
-
     while count != (size):
         idx = random.randint(0, photo_ids.shape[0])     # randomly sample the photo id
         tensors[count] = pix2tensor(id2pix(photos[idx]))
         count += 1
-        print(count)
-
     return tensors
+
 
 def triplet_sampling(row, batch):
     u""" sampling method for triplet learning
@@ -114,6 +115,13 @@ def triplet_sampling(row, batch):
 
     return img, sim
 
+
+def get_all_sample(tag_idx, upper_bound = False):
+    """
+    input:  (int) tag index
+    output: tensor of size (|tag|, 3, 384, 256)
+    this function returns all samples specified by tag index
+    """
+
 if __name__ == "__main__":
-    #print(single_sampling(24)[1])
-    print(tag_sampling(10, 24))
+    print(single_sampling(24)[1])
