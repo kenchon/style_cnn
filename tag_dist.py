@@ -109,7 +109,7 @@ def compute_gaussian(tag_idx):
     model.train(False)
 
     for i in tag_idx:
-        for j in range(30):
+        for j in range(3):
             tensors = sampler.tag_sampling(80, tag_idx)
             features = np.append(features, model.forward(tensors.cuda()).cpu().detach().numpy(), axis = 0)
         #print(features.shape)
@@ -133,18 +133,39 @@ def compute_gaussian2(tag_idx):
     model = model.cuda()
     model.train(False)
 
-    for j in range(15):
+    for j in range(20):
         tensors = sampler.tag_sampling(80, tag_idx)
         features = np.append(features, model.forward(tensors.cuda()).cpu().detach().numpy(), axis = 0)
 
-    mean = np.average(features[i*80:(i+1)*80], axis = 0)
-    cov = np.cov((features[i*80:(i+1)*80].T))+ 0.00001*np.eye(128)
+    #mean = np.average(features[i*80:(i+1)*80], axis = 0)
+    cov = np.cov((features[i*80:(i+1)*80].T))+ 0.001*np.eye(128)
 
-    return mean, cov
+    return cov
 
 def compute_entropy(Cov):
     #print("det|cov| is {}".format(np.linalg.det(Cov)))
     return 0.5*(log(np.linalg.det(Cov))+128*(log(2*pi)+1))
+
+def tag_mean_cov(tag_idx):
+    features = np.empty([0, 128])
+    model = load_model.model
+    model = model.cuda()
+    model.train(False)
+
+    indices = list(sampler.search_id_by_tag(tag_idx))
+    #print(np.array(indices).shape)
+    count = 0
+    for i in indices:
+        #if count%10000 == 0: print(count)
+        count += 1
+        try:
+            pix = sampler.id_sampling(i)
+            features = np.append(features, model.forward(pix.cuda()).cpu().detach().numpy(), axis = 0)
+        except:
+            print("PASS THE ERROR")
+        if count == 100: break
+    cov = np.cov(features.T)+ 0.001*np.eye(128)
+    return cov
 
 def io_test2():
     #pca_visualization_2d()
@@ -160,5 +181,5 @@ def io_test2():
 if __name__ == "__main__":
 
     for i in range(66):
-        m, c = compute_gaussian2(i)
-        print("{}:{}".format(tag_dict[i], np.linalg.det(c)))
+        c = tag_mean_cov(i)
+        print("{}:\t{}".format(tag_dict[i], round(math.log10(np.linalg.det(c))), 2))
