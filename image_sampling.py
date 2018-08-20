@@ -9,8 +9,8 @@ import numpy
 from math import *
 
 
-#label_array = np.load("./verified.npy")     # load numpy based labels
-label_array = np.load("./noisy.npy")     # load numpy based labels
+label_array = np.load("./verified.npy")     # load numpy based labels
+#label_array = np.load("./noisy.npy")     # load numpy based labels
 
 
 with open("./photos.txt","r") as f:
@@ -116,12 +116,15 @@ def triplet_sampling(row, batch):
     return img, sim
 
 
-def get_all_sample(tag_idx, upper_bound = False):
-    """
-    input:  (int) tag index
-    output: tensor of size (|tag|, 3, 384, 256)
-    this function returns all samples specified by tag index
-    """
+def id_sampling(id):
+    tensor = torch.Tensor(1, 3, 384, 256)
+    tensor[0] = pix2tensor(id2pix(photos[id]))
+    return tensor
+
+def search_id_by_tag(tag_idx):
+    return np.where(label_array[:, tag_idx] == 1)[0]
 
 if __name__ == "__main__":
-    print(single_sampling(24)[1])
+    tensor = id_sampling(1)
+    print(tensor.shape)
+    print(tensor[0])
