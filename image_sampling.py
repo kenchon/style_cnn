@@ -9,8 +9,8 @@ import numpy
 from math import *
 
 
-label_array = np.load("./verified.npy")     # load numpy based labels
-#label_array = np.load("./noisy.npy")     # load numpy based labels
+#label_array = np.load("./verified.npy")     # load numpy based labels
+label_array = np.load("./noisy.npy")     # load numpy based labels
 
 
 with open("./photos.txt","r") as f:
@@ -124,7 +124,9 @@ def id_sampling(id):
 def search_id_by_tag(tag_idx):
     return np.where(label_array[:, tag_idx] == 1)[0]
 
+def number_of_image(tag_idx):
+    return np.where(label_array[:, tag_idx] == 1)[0].shape[0]
+
 if __name__ == "__main__":
     tensor = id_sampling(1)
-    print(tensor.shape)
-    print(tensor[0])
+    print(number_of_image(1))
