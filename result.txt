@@ -1,67 +1,67 @@
-Black:	-164
-Gray:	-166
-White:	-166
-Cream:	-165
-Beige:	-166
-Orange:	-163
-Pink:	-166
-Hot-Pink:	-160
-Red:	-160
-Ruby-Red:	-160
-Chartreuse:	-233
-Olive-Green:	-167
-Green:	-165
-Camel:	-165
-Bronze:	-162
-Brown:	-163
-Turquoise-Blue:	-164
-Light-Blue:	-164
-Blue:	-159
-Navy:	-163
-Yellow:	-163
-Mustard:	-162
-Periwinkle:	-165
-Purple:	-163
-Gold:	-163
-Silver:	-168
-Top:	-164
-T-Shirt:	-165
-Blouse:	-158
-Shirt:	-163
-Cardigan:	-167
-Cape:	-285
-Blazer:	-164
-Sweatshirt:	-256
-Vest:	-169
-Sweater:	-166
-Jacket:	-165
-Dress:	-164
-Coat:	-168
-Skirt:	-166
-Pants:	-165
-Jeans:	-165
-Shorts:	-167
-Jumper:	-256
-Romper:	-199
-Stockings_Tights:	-163
-Leggings:	-165
-Socks:	-165
-Shoes:	-162
-Sandals:	-166
-Boots:	-165
-Pumps:	-161
-Flats:	-166
-Loafers:	-194
-Sneakers:	-163
-Hat:	-163
-Tie:	-322
-Necklace:	-162
-Glasses:	-163
-Sunglasses:	-166
-Scarf:	-164
-Watch_Bracelet:	-161
-Gloves:	-206
-Swimwear:	-314
-Bag_Purse:	-164
-Belt:	-162
-
+tag   num_of_images covariance
+Black:	238498,	-114.26
+Gray:	70930,	-116.37
+White:	113245,	-113.08
+Cream:	25056,	-106.47
+Beige:	47934,	-114.09
+Orange:	28335,	-103.52
+Pink:	41750,	-107.53
+Hot-Pink:	12981,	-98.63
+Red:	48630,	-107.97
+Ruby-Red:	24237,	-100.61
+Chartreuse:	3792,	-101.22
+Olive-Green:	8989,	-105.82
+Green:	36587,	-113.63
+Camel:	25463,	-106.79
+Bronze:	7954,	-105.05
+Brown:	82627,	-113.32
+Turquoise-Blue:	15004,	-102.7
+Light-Blue:	26943,	-102.51
+Blue:	73111,	-111.74
+Navy:	39878,	-101.39
+Yellow:	20879,	-108.77
+Mustard:	7651,	-103.06
+Periwinkle:	4742,	-105.33
+Purple:	26617,	-106.87
+Gold:	30566,	-109.82
+Silver:	32328,	-108.47
+Top:	77596,	-112.56
+T-Shirt:	27806,	-112.74
+Blouse:	39625,	-109.93
+Shirt:	57556,	-112.65
+Cardigan:	26716,	-103.34
+Cape:	2236,	-103.47
+Blazer:	31424,	-113.64
+Sweatshirt:	2503,	-103.53
+Vest:	15379,	-109.61
+Sweater:	37782,	-113.79
+Jacket:	47070,	-114.07
+Dress:	105454,	-116.53
+Coat:	24557,	-112.65
+Skirt:	84839,	-112.21
+Pants:	44023,	-117.71
+Jeans:	46929,	-115.88
+Shorts:	42129,	-111.28
+Jumper:	6217,	-102.07
+Romper:	3162,	-103.98
+Stockings_Tights:	32928,	-115.03
+Leggings:	16910,	-111.19
+Socks:	12526,	-105.42
+Shoes:	162265,	-113.84
+Sandals:	16651,	-103.84
+Boots:	73123,	-115.01
+Pumps:	7857,	-102.57
+Flats:	14084,	-102.02
+Loafers:	4089,	-102.69
+Sneakers:	10165,	-101.91
+Hat:	35051,	-109.27
+Tie:	1427,	-104.85
+Necklace:	36567,	-109.09
+Glasses:	7834,	-102.33
+Sunglasses:	24652,	-105.06
+Scarf:	22747,	-113.19
+Watch_Bracelet:	18922,	-106.26
+Gloves:	2279,	-104.32
+Swimwear:	2618,	-104.43
+Bag_Purse:	110155,	-111.41
+Belt:	39606,	-111.57
