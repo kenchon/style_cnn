@@ -163,8 +163,8 @@ def tag_mean_cov(tag_idx):
             features = np.append(features, model.forward(pix.cuda()).cpu().detach().numpy(), axis = 0)
         except:
             print("PASS THE ERROR")
-        if count == 100: break
-    cov = np.cov(features.T)+ 0.001*np.eye(128)
+        if count == 1420: break
+    cov = np.cov(features.T)+ 0.0001*np.eye(128)
     return cov
 
 def io_test2():
@@ -182,4 +182,6 @@ if __name__ == "__main__":
 
     for i in range(66):
         c = tag_mean_cov(i)
-        print("{}:\t{}".format(tag_dict[i], round(math.log10(np.linalg.det(c))), 2))
+        num = sampler.number_of_image(i)
+        detc = round(math.log10(np.linalg.det(c)),2)
+        print("{}:\t{},\t{}".format(tag_dict[i], num, detc))
