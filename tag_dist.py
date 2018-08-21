@@ -165,7 +165,30 @@ def tag_mean_cov(tag_idx):
             print("PASS THE ERROR")
         if count == 1420: break
     cov = np.cov(features.T)+ 0.0001*np.eye(128)
-    return cov
+    mean =  np.mean(features, axis = 0)
+
+    return mean, cov
+
+def compute_image_dist():
+    features = np.empty([0, 128])
+    model = load_model.model
+    model = model.cuda()
+    model.train(False)
+
+    count = 0
+    for i in range(400000):
+        if count%10000 == 0: print(count)
+        count += 1
+        try:
+            pix = sampler.id_sampling(i)
+            features = np.append(features, model.forward(pix.cuda()).cpu().detach().numpy(), axis = 0)
+        except:
+            print("PASS THE ERROR")
+        if count == 100000: break
+    cov = np.cov(features.T)+ 0.0001*np.eye(128)
+    mean =  np.mean(features, axis = 0)
+
+    return mean, cov
 
 def io_test2():
     #pca_visualization_2d()
@@ -180,8 +203,11 @@ def io_test2():
 
 if __name__ == "__main__":
 
+    p = compute_image_dist()
+
     for i in range(66):
-        c = tag_mean_cov(i)
-        num = sampler.number_of_image(i)
-        detc = round(math.log10(np.linalg.det(c)),2)
-        print("{}:\t{},\t{}".format(tag_dict[i], num, detc))
+        q = tag_mean_cov(i)
+
+        #num = sampler.number_of_image(i)
+        #detc = round(math.log10(np.linalg.det(c)),2)
+        print("{}:\t{}".format(tag_dict[i], gaussian_KL(p, q)))
