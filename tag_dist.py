@@ -174,7 +174,7 @@ def compute_image_dist():
     model.train(False)
 
     count = 0
-    for i in range(407700):
+    for i in range(407000):
         if count%10000 == 0: print(count)
         count += 1
         try:
@@ -182,9 +182,12 @@ def compute_image_dist():
             features = np.append(features, model.forward(pix.cuda()).cpu().detach().numpy(), axis = 0)
         except:
             print("PASS THE ERROR")
-        if count == 407000: break
+
     cov = np.cov(features.T)+ 0.00001*np.eye(128)
     mean =  np.mean(features, axis = 0)
+
+    np.save("datadist_mean.npy", mean)
+    np.save("datadist_cov.npy", cov)
 
     return mean, cov
 
