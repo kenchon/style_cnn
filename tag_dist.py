@@ -9,7 +9,6 @@ from collections import OrderedDict
 
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
-
 from mpl_toolkits.mplot3d import Axes3D
 
 tag_dict = OrderedDict()
@@ -21,13 +20,12 @@ with open("./labels.txt") as f:
 
 def gaussian_KL(p,q):
     """
-    input: p,q includes Gaussian parameters(μ, Σ)
+    input: p,q (which includes Gaussian parameters(μ, Σ))
     output: KL distance between 2 input distributions
     """
     mp, cp = p
     mq, cq = q
     D = mp.shape[0]
-    #D = 2
 
     cp_inv = np.linalg.inv(cp)
     cq_det = np.linalg.det(cq)
@@ -176,7 +174,7 @@ def compute_image_dist():
     model.train(False)
 
     count = 0
-    for i in range(400000):
+    for i in range(407700):
         if count%10000 == 0: print(count)
         count += 1
         try:
@@ -184,8 +182,8 @@ def compute_image_dist():
             features = np.append(features, model.forward(pix.cuda()).cpu().detach().numpy(), axis = 0)
         except:
             print("PASS THE ERROR")
-        if count == 100000: break
-    cov = np.cov(features.T)+ 0.0001*np.eye(128)
+        if count == 407000: break
+    cov = np.cov(features.T)+ 0.00001*np.eye(128)
     mean =  np.mean(features, axis = 0)
 
     return mean, cov
@@ -204,6 +202,7 @@ def io_test2():
 if __name__ == "__main__":
 
     p = compute_image_dist()
+    print(p)
 
     for i in range(66):
         q = tag_mean_cov(i)
