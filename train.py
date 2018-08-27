@@ -13,14 +13,13 @@ from sklearn.model_selection import ShuffleSplit
 from sklearn.model_selection import GridSearchCV
 
 import subprocess as sp
-from stylenet import Stylenet
-from stylenet import modelB
+import load_model
 import image_sampling
 from image_sampling import triplet_sampling
 #import validate
 #import gc
-#import random
-#import csv
+import random
+import csv
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -51,63 +50,65 @@ def classfi_loss(y, target):
     return loss
 
 
-"""
-learning
-"""
-model = stylenet.modelB
-model = model.cuda()
+if __name__ == "__main__":
+    model = load_model.model
+    model = model.cuda()
 
-learning_rate = 0.001
-epochs = 3
-optimizer = torch.optim.Adadelta(model.parameters(),lr=learning_rate)
-batch_size = 24
+    # learning settings
+    learning_rate = 0.001
+    epochs = 3
+    optimizer = torch.optim.Adadelta(model.parameters(),lr=learning_rate)
+    batch_size = 22
 
-for epoch in range(epochs):
-    f_sim = open("./triplet_v3_r.csv","r")
-    reader_csv = csv.reader(f_sim)
-    row = []
+    for epoch in range(epochs):
+        f_sim = open("./triplet.csv","r")
+        reader_csv = csv.reader(f_sim)
+        row = []
 
-    for k,i in enumerate(reader_csv):
-        row.append(i)
+        for k,i in enumerate(reader_csv):
+            row.append(i)
 
-    lines = list(range(len(row)))
-    random.shuffle(lines)
+        lines = list(range(len(row)))
+        random.shuffle(lines)
 
-    batchs = []
-    idx = 0
+        row = row[:1235520]
 
-    for i in range( int(len(row)/batch_size) ):
-        batchs.append(lines[idx: idx + batch_size])
-        idx += batch_size
-    print("int(size/batch_size) = {}".format(int(len(row)/batch_size)))
-    print(len(batchs))
+        batchs = []
+        idx = 0
 
-    for o, batch in enumerate(batchs[:2000]):
+        for i in range( int(len(row)/batch_size) ):
+            batchs.append(lines[idx: idx + batch_size])
+            idx += batch_size
 
-        loss = 0
-        model.train(True)
+        print("int(size/batch_size) = {}".format(int(len(row)/batch_size)))
+        print(len(batchs))
 
-        # img, sim are list where i th column holds i th triplet
-        img, sim, pred = triplet_sampling(row, batch)
+        for o, batch in enumerate(batchs):
+            loss = 0
+            model.train(True)
 
-        batch_count = 0
+            # img, sim are list where i th column holds i th triplet
+            #img, sim, pred = triplet_sampling(row, batch)
+            img, sim = triplet_sampling(row, batch)
 
-        feat = []
-        for j in range(3):
-            feat.append(model.forward(Variable(img[j]).cuda()))
-        for i in range(batch_size):
-            # herein the loss is computed
-            loss += triplet_loss([feat[0][i],feat[1][i],feat[2][i]], (sim[0][i],sim[1][i]))
-            loss += classfi_loss(feat[2][i],target[i])
-            batch_count += 1
+            batch_count = 0
 
-        loss = loss/batch_size
-        print(o, loss.data[0])
+            feat = []
+            for j in range(3):
+                feat.append(model.forward(Variable(img[j]).cuda()))
+            for i in range(batch_size):
+                # herein the loss is computed
+                loss += triplet_loss([feat[0][i],feat[1][i],feat[2][i]], (sim[0][i],sim[1][i]))
+                #loss += classfi_loss(feat[2][i],target[i])
+                batch_count += 1
 
-        optimizer.zero_grad()
+            del feat
+            loss = loss/batch_size
+            print(o, loss.cpu().detach().numpy())
 
-        loss.backward()
-        optimizer.step()
+            optimizer.zero_grad()
 
-    torch.save(model.state_dict(), "cond2_{}.pth".format(epoch))
+            loss.backward()
+            optimizer.step()
 
+        torch.save(model.state_dict(), "parameters_.pth".format(epoch))
