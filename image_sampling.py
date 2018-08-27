@@ -37,8 +37,8 @@ def pix2tensor(pixel_img):
 
 def id2pix(img_id):
     img_id = img_id.strip()
-    #return Image.open(photos[int(photos[img_id][0])].strip())
-    return Image.open("../fashion550k/photos/" + img_id)
+    return Image.open("../fashion550k/photos/"+photos[int(img_id)].strip())
+    #return Image.open("../fashion550k/photos/" + img_id)
 
 def single_sampling(batch_size):
     u""" sampling method for classification
@@ -109,6 +109,7 @@ def triplet_sampling(row, batch):
             count += 1
         except:
             batch[count] = random.randint(0,len(row))
+
 
     img = [ref_tensor, pos_tensor, neg_tensor]
     sim = [sim_pos, sim_neg]
