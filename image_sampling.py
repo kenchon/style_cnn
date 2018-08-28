@@ -35,10 +35,16 @@ def pix2tensor(pixel_img):
 
     return preprocess(pixel_img)
 
-def id2pix(img_id):
-    img_id = img_id.strip()
-    return Image.open("../fashion550k/photos/"+photos[int(img_id)].strip())
-    #return Image.open("../fashion550k/photos/" + img_id)
+def id2pix(img_id, use_path = False):
+    if(use_path):
+        return Image.open(img_id)
+    else:
+        img_id = img_id.strip()
+        return Image.open("../fashion550k/photos/"+photos[int(img_id)].strip())
+        #return Image.open("../fashion550k/photos/" + img_id)
+
+def id2tensor(id, use_path = False):
+    return pix2tensor(id2pix(id, use_path))
 
 def single_sampling(batch_size):
     u""" sampling method for classification
