@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings('ignore')
+
 import torch
 
 from torch.autograd import Variable
@@ -33,8 +36,6 @@ import scipy.stats as sp
 
 import requests
 
-import warnings
-warnings.filterwarnings('ignore')
 
 def img2variable(path_to_img):
     normalize = transforms.Normalize(
@@ -52,7 +53,7 @@ def img2variable(path_to_img):
     img_tensor = preprocess(img)
     return Variable(img_tensor.unsqueeze_(0)).cuda()
 
-if __name__ == "__main__":
+def test(params):
     """
     load hipster wars dataset
     """
@@ -85,9 +86,9 @@ if __name__ == "__main__":
     load model
     """
     dictlist = []
-    models  =["parameters_.pth"]
+    models  = params
 
-    path = models[0]
+    path = params
     best_dict = {}
 
     model = load_model.model
@@ -115,7 +116,107 @@ if __name__ == "__main__":
     feature = np.array(feature_list)
     feature = feature[:,0,:]          # shape of (1893,1,128) to (1893,128)
     target = np.array(target_list)
-    print("got features...")
+    """
+    tune the hyperparameter C
+    """
+
+    #clf_sets = [(svm.LinearSVC(penalty='l2', loss='squared_hinge', dual=True, tol=1e-3),
+    #np.logspace(-1, 2, 50), feature, target)]
+
+    X = feature
+    #X = sp.stats.zscore(feature, axis = 1)
+    Y = target
+
+    C_range = np.linspace(0.001, 0.05, 100)
+    gamma_range = np.linspace(0.0001, 0.0005, 30)
+    #param_grid = dict(gamma=gamma_range, C=C_range)
+    param_grid = dict(C=C_range)
+
+    #grid = GridSearchCV(svm.SVC(kernel='rbf',tol=1e-4), param_grid=param_grid, cv=StratifiedKFold(y=Y))
+    grid = GridSearchCV(svm.LinearSVC(penalty="l2", loss="squared_hinge", tol=1e-4, class_weight="balanced"),
+    	                            param_grid=param_grid, cv=StratifiedKFold(y=Y, n_folds = 10))
+    grid.fit(X, Y)
+
+    # plot the scores of the grid
+    # grid_scores_ contains parameter settings and scores
+    score_dict = grid.grid_scores_
+
+    # We extract just the scores
+    scores = [x[1] for x in score_dict]
+
+    clf = grid.best_estimator_
+    clf.fit(X, Y)
+    pre = clf.predict(X)
+
+    best_dict["clf"] = clf
+
+    return max(scores)
+
+
+def test2(parameter):
+    """
+    load hipster wars dataset
+    """
+
+    feature_list = []           # which keeps output of 128 dim features
+    target_list = []            # which keeps corresponding target label
+
+    home_dir = "../hipsterwars"
+    styles = ["Hipster","Goth","Preppy","Pinup","Bohemian"]
+
+    feature_list = []
+    target_list = []
+
+    f_lables = open(home_dir+"/skills.txt")
+    lines = f_lables.readlines()
+
+    delta = 0.5
+
+    img_paths = {}
+
+    for style in styles:
+        paths = []
+        for line in lines:
+            line = line.split(",")
+            if line[0] == style:
+                paths.append(line[1])
+        img_paths[style] = paths[:int(len(paths)*delta)]
+
+    """
+    load model
+    """
+    dictlist = []
+    models  = parameter
+
+    path = parameter
+    best_dict = {}
+
+    model = load_model.model
+    model.load_state_dict(torch.load(path))
+    model = model.cuda()
+    model.eval()        # use network as feature extractor
+    #print("loaded the model...")
+    """
+    feature extraction
+    """
+    count = 0
+    for style in styles:
+        images = img_paths[style]
+        for image in images:
+            tensor = torch.Tensor(1, 3, 384, 256)
+            path = "../hipsterwars/classes/"+ style + "/"+image+".jpg"
+            tensor[0] = sampler.pix2tensor(sampler.id2pix(path, use_path = True))
+            tensor = tensor.cuda()
+            feature = model.forward(tensor)
+            feature = feature.cpu()
+            feature_list.append(feature.data.numpy())
+            target_list.append(count)
+        count += 1
+
+    feature = np.array(feature_list)
+    feature = feature[:,0,:]          # shape of (1893,1,128) to (1893,128)
+    target = np.array(target_list)
+    #print("got features...")
 
     """
     tune the hyperparameter C
@@ -184,8 +285,8 @@ if __name__ == "__main__":
             preline.extend(pre.tolist())
         scores = cross_val_score(clf, feature, target, cv=rs)
         scoresN[i] = np.mean(scores)
-        fr.write(matrix)
-        fr.write(scoresN[i])
+        #fr.write(matrix)
+        #fr.write(scoresN[i])
         print(scoresN[i])
         print(matrix)
         print(classification_report(trline, preline,target_names = styles))
@@ -229,3 +330,6 @@ if __name__ == "__main__":
     line_notify = requests.post(line_notify_api, data=payload, headers=headers)
     dictlist.append(best_dict)
     print(best_dict)
+
+if __name__ == "__main__":
+    test2("prams_lr001_bts4000.pth")
