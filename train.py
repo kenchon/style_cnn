@@ -15,6 +15,7 @@ from sklearn.model_selection import GridSearchCV
 import subprocess as sp
 import load_model
 import image_sampling
+import test
 from image_sampling import triplet_sampling
 #import validate
 #import gc
@@ -43,10 +44,10 @@ def triplet_loss(feat, sim):
     return loss
 
 
-def classfi_loss(y, target):
+def classfi_loss(log_y, target):
     N = np.sum(target)
-    for y_i,t in zip(y, target):
-        loss += -t/N*log(y_i)
+    for log_yi,t in zip(log_y, target):
+        loss += -t/N*log(log_yi)
     return loss
 
 
@@ -58,7 +59,7 @@ if __name__ == "__main__":
     learning_rate = 0.001
     epochs = 3
     optimizer = torch.optim.Adadelta(model.parameters(),lr=learning_rate)
-    batch_size = 22
+    batch_size = 16
 
     for epoch in range(epochs):
         f_sim = open("./triplet.csv","r")
@@ -80,7 +81,7 @@ if __name__ == "__main__":
             batchs.append(lines[idx: idx + batch_size])
             idx += batch_size
 
-        print("int(size/batch_size) = {}".format(int(len(row)/batch_size)))
+        #print("int(size/batch_size) = {}".format(int(len(row)/batch_size)))
         print(len(batchs))
 
         for o, batch in enumerate(batchs):
@@ -104,11 +105,14 @@ if __name__ == "__main__":
 
             del feat
             loss = loss/batch_size
-            print(o, loss.cpu().detach().numpy())
+            #print(o, loss.cpu().detach().numpy())
 
             optimizer.zero_grad()
 
             loss.backward()
             optimizer.step()
 
-        torch.save(model.state_dict(), "parameters_.pth".format(epoch))
+            if(o%500 == 0):
+                model_path = "prams_lr0001_iter{}.pth".format(o)
+                torch.save(model.state_dict(), model_path)
+                print(test.test(model_path))
