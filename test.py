@@ -188,11 +188,11 @@ def test2(parameter):
     dictlist = []
     models  = parameter
 
-    path = parameter
+    model_path = parameter
     best_dict = {}
 
     model = load_model.model
-    model.load_state_dict(torch.load(path))
+    model.load_state_dict(torch.load(model_path))
     model = model.cuda()
     model.eval()        # use network as feature extractor
     #print("loaded the model...")
@@ -204,8 +204,8 @@ def test2(parameter):
         images = img_paths[style]
         for image in images:
             tensor = torch.Tensor(1, 3, 384, 256)
-            path = "../hipsterwars/classes/"+ style + "/"+image+".jpg"
-            tensor[0] = sampler.pix2tensor(sampler.id2pix(path, use_path = True))
+            img_path = "../hipsterwars/classes/"+ style + "/"+image+".jpg"
+            tensor[0] = sampler.pix2tensor(sampler.id2pix(img_path, use_path = True))
             tensor = tensor.cuda()
             feature = model.forward(tensor)
             feature = feature.cpu()
@@ -272,10 +272,11 @@ def test2(parameter):
 
     fr = open("result_2018523.txt","a")
 
+    """
     trline = []
     preline = []
     for i in range(N):
-        rs=ShuffleSplit(n_splits=100, train_size=0.8,random_state=i)
+        rs=ShuffleSplit(n_splits=100, train_size=0.9,random_state=i)
         matrix = [[0]*5]*5
         for tr,ts in rs.split(X):
             clf.fit(X[tr],Y[tr])
@@ -290,6 +291,7 @@ def test2(parameter):
         print(scoresN[i])
         print(matrix)
         print(classification_report(trline, preline,target_names = styles))
+    """
 
     for i in range(N):
         clf = grid.best_estimator_
@@ -303,7 +305,7 @@ def test2(parameter):
         #print(scores)
 
     best_dict["best_seed"] = np.argmax(scoresN)
-    best_dict["model"] = path
+    best_dict["model"] = model_path
     best_dict["score"] = np.max(scoresN)
 
     #print("{} {}".format(np.mean(scoresN), np.std(scoresN)))
@@ -332,4 +334,4 @@ def test2(parameter):
     print(best_dict)
 
 if __name__ == "__main__":
-    test2("prams_lr001_bts4000.pth")
+    test2("prams_lr001_bts1000.pth")
