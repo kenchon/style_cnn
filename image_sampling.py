@@ -39,8 +39,9 @@ def id2pix(img_id, use_path = False):
     if(use_path):
         return Image.open(img_id)
     else:
+        #print(img_id, type(img_id))
         img_id = img_id.strip()
-        return Image.open("../fashion550k/photos/"+photos[int(img_id)].strip())
+        return Image.open("../fashion550k/photos/"+img_id.strip())
         #return Image.open("../fashion550k/photos/" + img_id)
 
 def id2tensor(id, use_path = False):
@@ -89,12 +90,11 @@ def tag_sampling(size, tag_idx):
     return tensors
 
 
-def triplet_sampling(row, batch):
+def triplet_sampling(row, batch, do_classification = False):
     u""" sampling method for triplet learning
     input: row, batch_size
     output: three tensors of (batch_size, 3, 384, 256) and similarity scores
     """
-
     ref_tensor = pos_tensor = neg_tensor = torch.Tensor(len(batch),3,384,256)
     batch_size = len(batch)
 
@@ -120,7 +120,11 @@ def triplet_sampling(row, batch):
     img = [ref_tensor, pos_tensor, neg_tensor]
     sim = [sim_pos, sim_neg]
 
-    return img, sim
+    if(do_classification):
+        return img, sim, target
+    else:
+        return img, sim
+
 
 
 def id_sampling(id):
