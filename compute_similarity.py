@@ -4,6 +4,7 @@ import numpy as np
 
 f_wei = open("weights.txt","r")
 weights = []
+il_list = [137718, 137719, 159150, 159154, 159155, 159157, 159158, 159159, 159160, 172834, 172836, 172838, 172841, 175080, 200126, 217097, 218044, 223835, 296205, 300948, 337813, 374843]
 
 for line in f_wei:
     line = line.strip("\n")
@@ -41,14 +42,17 @@ def compute_simlarity(img1, img2):
     return inter/union
 
 def sampling():
-    SIZE = 407771
+    SIZE = 405589
 
     # compute similarity of images and save image triplet
     while(True):
         # random sampling
-        id1 = random.randint(0, SIZE)
-        id2 = random.randint(0, SIZE)
-        id3 = random.randint(0, SIZE)
+        while(True):
+            id1 = random.randint(0, SIZE)
+            id2 = random.randint(0, SIZE)
+            id3 = random.randint(0, SIZE)
+            if(id1 not in il_list and id2 not in il_list and id3 not in il_list):
+                break
 
         sim = compute_simlarity(id1,id2)
 
