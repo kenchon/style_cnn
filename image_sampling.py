@@ -44,6 +44,9 @@ def id2pix(img_id, use_path = False):
         return Image.open("../fashion550k/photos/"+img_id.strip())
         #return Image.open("../fashion550k/photos/" + img_id)
 
+def id2path(img_id):
+    return "../fashion550k/photos/"+photos[img_id].strip())
+
 def id2tensor(id, use_path = False):
     return pix2tensor(id2pix(id, use_path))
 
