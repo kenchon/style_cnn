@@ -42,10 +42,6 @@ def id2pix(img_id, use_path = False):
         #print(img_id, type(img_id))
         img_id = img_id.strip()
         return Image.open("../fashion550k/photos/"+img_id.strip())
-        #return Image.open("../fashion550k/photos/" + img_id)
-
-def id2path(img_id):
-    return "../fashion550k/photos/"+photos[img_id].strip())
 
 def id2tensor(id, use_path = False):
     return pix2tensor(id2pix(id, use_path))
@@ -134,6 +130,9 @@ def id_sampling(id):
     tensor = torch.Tensor(1, 3, 384, 256)
     tensor[0] = pix2tensor(id2pix(photos[id]))
     return tensor
+
+def id2path(img_id):
+    return "../fashion550k/photos/"+photos[img_id].strip()
 
 def search_id_by_tag(tag_idx):
     return np.where(label_array[:, tag_idx] == 1)[0]
