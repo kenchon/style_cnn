@@ -34,7 +34,7 @@ import pandas as pd
 
 import scipy.stats as sp
 
-import requests
+import mymodules.line_notify as ln
 
 
 def img2variable(path_to_img):
@@ -310,7 +310,7 @@ def test2(parameter):
 
     #print("{} {}".format(np.mean(scoresN), np.std(scoresN)))
     df = pd.DataFrame(scoresN)
-    df.to_csv("{}_linear.csv".format(path))
+    #df.to_csv("{}_linear.csv".format(path))
 
 
     """
@@ -318,20 +318,11 @@ def test2(parameter):
     f_result.write("{} {}".format(np.mean(scoresN), np.std(scoresN)))
     f_result.close()
     """
+    message = "{} {}".format(max(scoresN),clf)
+    ln.notify(message)
 
-    """
-    notify via LINE
-    """
-    line_notify_token = "5HUT8C9hfybizGGHMW3gtS6QQWM7CaA5Nzd0gJ2oXuQ"
-    line_notify_api = 'https://notify-api.line.me/api/notify'
-    message = "{} {} {}".format(path, max(scoresN),clf)
-
-
-    payload = {'message': message}
-    headers = {'Authorization': 'Bearer ' + line_notify_token}  # 発行したトークン
-    line_notify = requests.post(line_notify_api, data=payload, headers=headers)
     dictlist.append(best_dict)
     print(best_dict)
 
 if __name__ == "__main__":
-    test2("prams_lr001_bts1000.pth")
+    test2("./result/params/prams_lr0001_iter17500.pth")
