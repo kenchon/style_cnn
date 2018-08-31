@@ -17,10 +17,13 @@ import load_model
 import image_sampling
 import test
 from image_sampling import triplet_sampling
+import compute_similarity as cs
 #import validate
 #import gc
 import random
 import csv
+
+w = cs.weights
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -39,16 +42,18 @@ def triplet_loss(feat, sim):
     reg_dist_pos = exp(dist_pos)/(exp(dist_pos) + exp(dist_neg))
     reg_dist_neg = exp(dist_neg)/(exp(dist_pos) + exp(dist_neg))
 
-    loss = (reg_dist_pos)**2 - (1-sim[0])*alpha*reg_dist_pos
+    loss_t = (reg_dist_pos)**2 - (1-sim[0])*alpha*reg_dist_pos
 
-    return loss
+    return loss_t
 
 
 def classfi_loss(log_y, target):
-    N = np.sum(target)
-    for log_yi,t in zip(log_y, target):
-        loss += -t/N*log(log_yi)
-    return loss
+    loss_c = 0
+
+    N = len(target)
+    for t in target:
+        loss_c += -w[t]/(N*10000)*log_y[t]   # cross entropy
+    return loss_c
 
 
 if __name__ == "__main__":
@@ -72,10 +77,11 @@ if __name__ == "__main__":
         lines = list(range(len(row)))
         random.shuffle(lines)
 
-        row = row[:1235520]
+        #row = row[:1235520]
 
         batchs = []
         idx = 0
+        alpha_c = 0.01
 
         for i in range( int(len(row)/batch_size) ):
             batchs.append(lines[idx: idx + batch_size])
@@ -89,8 +95,9 @@ if __name__ == "__main__":
             model.train(True)
 
             # img, sim are list where i th column holds i th triplet
+
             #img, sim, pred = triplet_sampling(row, batch)
-            img, sim = triplet_sampling(row, batch)
+            img, sim, target = triplet_sampling(row, batch, do_classification = True)
 
             batch_count = 0
 
@@ -100,7 +107,7 @@ if __name__ == "__main__":
             for i in range(batch_size):
                 # herein the loss is computed
                 loss += triplet_loss([feat[0][i],feat[1][i],feat[2][i]], (sim[0][i],sim[1][i]))
-                #loss += classfi_loss(feat[2][i],target[i])
+                loss += alpha_c * classfi_loss(feat[2][i],target[i])
                 batch_count += 1
 
             del feat
@@ -112,7 +119,7 @@ if __name__ == "__main__":
             loss.backward()
             optimizer.step()
 
-            if(o%500 == 0):
-                model_path = "prams_lr0001_iter{}.pth".format(o)
+            if(o!= 0 and o%1000 == 0):
+                model_path = "./result/params/prams_lr0001_clas=True_iter{}.pth".format(o)
                 torch.save(model.state_dict(), model_path)
                 print(test.test(model_path))
