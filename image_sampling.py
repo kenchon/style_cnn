@@ -41,7 +41,8 @@ def id2pix(img_id, use_path = False):
     else:
         #print(img_id, type(img_id))
         img_id = img_id.strip()
-        return Image.open("../fashion550k/photos/"+img_id.strip())
+        img_id = int(img_id)
+        return Image.open("../fashion550k/photos/"+photos[img_id].strip())
 
 def id2tensor(id, use_path = False):
     return pix2tensor(id2pix(id, use_path))
@@ -91,7 +92,7 @@ def tag_sampling(size, tag_idx):
 
 def triplet_sampling(row, batch, do_classification = False):
     u""" sampling method for triplet learning
-    input: row, batch_size
+    input: row, batch
     output: three tensors of (batch_size, 3, 384, 256) and similarity scores
     """
     ref_tensor = pos_tensor = neg_tensor = torch.Tensor(len(batch),3,384,256)
@@ -99,22 +100,20 @@ def triplet_sampling(row, batch, do_classification = False):
 
     sim_pos = list(range(batch_size))
     sim_neg = list(range(batch_size))
+    target = list(range(batch_size))
 
     count = 0
     bc = 0
 
     while count != (batch_size):
-        try:
-            idx = batch[count]
-            ref_tensor[count] = pix2tensor(id2pix(row[idx][0]))
-            pos_tensor[count] = pix2tensor(id2pix(row[idx][1]))
-            neg_tensor[count] = pix2tensor(id2pix(row[idx][2]))
-            sim_pos[count] = (float(row[idx][3]))
-            sim_neg[count] = (float(row[idx][4]))
-            count += 1
-        except:
-            batch[count] = random.randint(0,len(row))
-
+        idx = batch[count]
+        ref_tensor[count] = pix2tensor(id2pix(row[idx][0]))
+        pos_tensor[count] = pix2tensor(id2pix(row[idx][1]))
+        neg_tensor[count] = pix2tensor(id2pix(row[idx][2]))
+        sim_pos[count] = (float(row[idx][3]))
+        sim_neg[count] = (float(row[idx][4]))
+        target[count] = list(np.where(label_array[int(row[idx][2])] == 1))[0]
+        count += 1
 
     img = [ref_tensor, pos_tensor, neg_tensor]
     sim = [sim_pos, sim_neg]
