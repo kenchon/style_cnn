@@ -18,6 +18,7 @@ import image_sampling
 import test
 from image_sampling import triplet_sampling
 import compute_similarity as cs
+import mymodules.line_notify as ln
 #import validate
 #import gc
 import random
@@ -49,10 +50,12 @@ def triplet_loss(feat, sim):
 
 def classfi_loss(log_y, target):
     loss_c = 0
-
-    N = len(target)
+    sum_w = 0
+    #N = len(target)
     for t in target:
-        loss_c += -w[t]/(N*10000)*log_y[t]   # cross entropy
+        sum_w += w[t]
+        loss_c += -w[t]*log_y[t]   # cross entropy
+    loss_c = loss_c/(sum_w)
     return loss_c
 
 
@@ -62,7 +65,7 @@ if __name__ == "__main__":
 
     # learning settings
     learning_rate = 0.001
-    epochs = 3
+    epochs = 1000
     optimizer = torch.optim.Adadelta(model.parameters(),lr=learning_rate)
     batch_size = 16
 
@@ -119,7 +122,9 @@ if __name__ == "__main__":
             loss.backward()
             optimizer.step()
 
-            if(o!= 0 and o%1000 == 0):
-                model_path = "./result/params/prams_lr0001_clas=True_iter{}.pth".format(o)
+            if(o!= 0 and o%500 == 0):
+                model_path = "./result/params/prams_lr001_clas=True_epoch{}_iter{}_3_.pth".format(epoch, o)
                 torch.save(model.state_dict(), model_path)
-                print(test.test(model_path))
+                mess = test.test2(model_path)
+                #ln.notify(mess)
+                print(mess)
