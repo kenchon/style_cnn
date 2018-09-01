@@ -239,7 +239,7 @@ def test2(parameter):
     	                            param_grid=param_grid, cv=StratifiedKFold(y=Y, n_folds = 10))
     grid.fit(X, Y)
 
-    print("The best classifier is: ", grid.best_estimator_)
+    #print("The best classifier is: ", grid.best_estimator_)
 
     # plot the scores of the grid
     # grid_scores_ contains parameter settings and scores
@@ -258,19 +258,19 @@ def test2(parameter):
     #print(classification_report(target, pre,target_names = styles))
 
 
-    print("max score on the tuning is {}".format(max(scores)))
+    #print("max score on the tuning is {}".format(max(scores)))
 
     N = 100
     scoresN = np.zeros(N)
 
-    print("the best score of 075")
+    #print("the best score of 075")
     #clf = svm.LinearSVC(C=0.004132323232323233, class_weight='balanced', dual=True,
     #fit_intercept=True, intercept_scaling=1, loss='squared_hinge',
     #max_iter=1000, multi_class='ovr', penalty='l2', random_state=None,
     #tol=0.0001, verbose=0)
     #rs=ShuffleSplit(n_splits=100, train_size=0.8,random_state=41)
 
-    fr = open("result_2018523.txt","a")
+    #fr = open("result_2018523.txt","a")
 
     """
     trline = []
@@ -318,11 +318,13 @@ def test2(parameter):
     f_result.write("{} {}".format(np.mean(scoresN), np.std(scoresN)))
     f_result.close()
     """
-    message = "{} {}".format(max(scoresN),clf)
+    message = "{} {} {}".format(max(scoresN),clf, parameter)
     ln.notify(message)
 
     dictlist.append(best_dict)
     print(best_dict)
 
+    return str(max(scoresN))
+
 if __name__ == "__main__":
-    test2("./result/params/prams_lr0001_iter17500.pth")
+    test2("./result/params/prams_lr0001_clas=True_iter53500_2.pth")
