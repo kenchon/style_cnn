@@ -91,7 +91,8 @@ def test(params):
     path = params
     best_dict = {}
 
-    model = load_model.model
+    #model = load_model.model
+    model = stylenet.get_model()
     model.load_state_dict(torch.load(path))
     model = model.cuda()
     model.eval()        # use network as feature extractor
@@ -107,7 +108,7 @@ def test(params):
             path = "../hipsterwars/classes/"+ style + "/"+image+".jpg"
             tensor[0] = sampler.pix2tensor(sampler.id2pix(path, use_path = True))
             tensor = tensor.cuda()
-            feature = model.forward(tensor)
+            pred, feature = model.forward(tensor)
             feature = feature.cpu()
             feature_list.append(feature.data.numpy())
             target_list.append(count)
@@ -191,7 +192,7 @@ def test2(parameter):
     model_path = parameter
     best_dict = {}
 
-    model = load_model.model
+    model = stylenet.get_model()
     model.load_state_dict(torch.load(model_path))
     model = model.cuda()
     model.eval()        # use network as feature extractor
@@ -207,7 +208,7 @@ def test2(parameter):
             img_path = "../hipsterwars/classes/"+ style + "/"+image+".jpg"
             tensor[0] = sampler.pix2tensor(sampler.id2pix(img_path, use_path = True))
             tensor = tensor.cuda()
-            feature = model.forward(tensor)
+            pred, feature = model.forward(tensor)
             feature = feature.cpu()
             feature_list.append(feature.data.numpy())
             target_list.append(count)
@@ -298,7 +299,7 @@ def test2(parameter):
         rs=ShuffleSplit(n_splits=100, train_size=0.9,random_state=i)
         scores = cross_val_score(clf, feature, target, cv=rs)
         scoresN[i] = np.mean(scores)
-        print(i, np.mean(scores))
+        #print(i, np.mean(scores))
 
         #print("here's a result:")
         #print(mean_score)
@@ -319,12 +320,13 @@ def test2(parameter):
     f_result.close()
     """
     message = "{} {} {}".format(max(scoresN),clf, parameter)
-    ln.notify(message)
+    #ln.notify(message)
 
     dictlist.append(best_dict)
-    print(best_dict)
+    #print(best_dict)
 
-    return str(max(scoresN))
+    return max(scoresN)
 
 if __name__ == "__main__":
-    test2("./result/params/prams_lr0001_clas=True_iter53500_2.pth")
+    #test2("./result/params/prams_lr0001_clas=True_iter53500_2.pth")
+    test2("stylenet.pth")
