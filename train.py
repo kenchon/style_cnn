@@ -25,6 +25,7 @@ import random
 import csv
 
 w = cs.weights
+use_proposed = False
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -34,29 +35,39 @@ def weights_init(m):
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
-def triplet_loss(feat, sim):
+def triplet_loss(feat, sim, use_proposed = True):
     alpha = 0.0001
 
     dist_pos = torch.norm(feat[0] - feat[1], 2)
     dist_neg = torch.norm(feat[0] - feat[2], 2)
 
     reg_dist_pos = exp(dist_pos)/(exp(dist_pos) + exp(dist_neg))
-    reg_dist_neg = exp(dist_neg)/(exp(dist_pos) + exp(dist_neg))
+    #reg_dist_neg = exp(dist_neg)/(exp(dist_pos) + exp(dist_neg))
 
-    loss_t = (reg_dist_pos)**2 - (1-sim[0])*alpha*reg_dist_pos
+    if(use_proposed):
+        loss_t = (reg_dist_pos)**2 - (1-sim[0])*alpha*reg_dist_pos
+        return loss_t
+    else:
+        return (reg_dist_pos)**2
 
-    return loss_t
 
-
-def classfi_loss(log_y, target):
+def classfi_loss(log_y, target, use_proposed = True):
     loss_c = 0
-    sum_w = 0
-    #N = len(target)
-    for t in target:
-        sum_w += w[t]
-        loss_c += -w[t]*log_y[t]   # cross entropy
-    loss_c = loss_c/(sum_w)
-    return loss_c
+
+    if(use_proposed):
+        sum_w = 0
+        for t in target:
+            sum_w += w[t]
+            loss_c += -w[t]*log_y[t]   # cross entropy
+        loss_c = loss_c/(sum_w)
+        return loss_c
+
+    else:
+        N = len(target)
+        for t in target:
+            loss_c += -1*log_y[t]   # cross entropy
+        loss_c = loss_c/N
+        return loss_c
 
 
 if __name__ == "__main__":
@@ -64,13 +75,18 @@ if __name__ == "__main__":
     model = model.cuda()
 
     # learning settings
-    learning_rate = 0.001
+    learning_rate = 0.01
     epochs = 1000
     optimizer = torch.optim.Adadelta(model.parameters(),lr=learning_rate)
-    batch_size = 16
+    batch_size = 22
+    max_score = 0
 
     for epoch in range(epochs):
-        f_sim = open("./triplet.csv","r")
+        if(use_proposed):
+            f_sim = open("./triplet.csv","r")
+        else:
+            f_sim = open("./triplet_pre.csv","r")
+
         reader_csv = csv.reader(f_sim)
         row = []
 
@@ -98,8 +114,6 @@ if __name__ == "__main__":
             model.train(True)
 
             # img, sim are list where i th column holds i th triplet
-
-            #img, sim, pred = triplet_sampling(row, batch)
             img, sim, target = triplet_sampling(row, batch, do_classification = True)
 
             batch_count = 0
@@ -109,8 +123,8 @@ if __name__ == "__main__":
                 feat.append(model.forward(Variable(img[j]).cuda()))
             for i in range(batch_size):
                 # herein the loss is computed
-                loss += triplet_loss([feat[0][i],feat[1][i],feat[2][i]], (sim[0][i],sim[1][i]))
-                loss += alpha_c * classfi_loss(feat[2][i],target[i])
+                loss += triplet_loss([feat[0][i],feat[1][i],feat[2][i]], (sim[0][i],sim[1][i]), use_proposed)
+                loss += alpha_c * classfi_loss(feat[2][i],target[i], use_proposed)
                 batch_count += 1
 
             del feat
@@ -122,9 +136,12 @@ if __name__ == "__main__":
             loss.backward()
             optimizer.step()
 
-            if(o!= 0 and o%500 == 0):
-                model_path = "./result/params/prams_lr001_clas=True_epoch{}_iter{}_3_.pth".format(epoch, o)
+            if(o%10 == 0 and o != 0):
+                model_path = "./result/params/prams_lr001_clas=True_epoch{}_iter{}_5.pth".format(epoch, o)
                 torch.save(model.state_dict(), model_path)
-                mess = test.test2(model_path)
+                temp_score = test.test2(model_path)
+                if(temp_score > max_score):
+                    ln.notify("{} {}".format(str(temp_score), model_path))
+                    max_score = temp_score
                 #ln.notify(mess)
-                print(mess)
+                print("{} {}".format(temp_score, max_score))
