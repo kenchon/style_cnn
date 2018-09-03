@@ -14,6 +14,7 @@ from sklearn.model_selection import GridSearchCV
 
 import subprocess as sp
 import load_model
+import stylenet
 import image_sampling
 import test
 from image_sampling import triplet_sampling
@@ -23,9 +24,6 @@ import mymodules.line_notify as ln
 #import gc
 import random
 import csv
-
-w = cs.weights
-use_proposed = False
 
 def weights_init(m):
     classname = m.__class__.__name__
@@ -71,14 +69,18 @@ def classfi_loss(log_y, target, use_proposed = True):
 
 
 if __name__ == "__main__":
-    model = load_model.model
+    w = cs.weights
+    use_proposed = True
+
+    #model = load_model.model
+    model = stylenet.get_model()
     model = model.cuda()
 
     # learning settings
     learning_rate = 0.01
     epochs = 1000
     optimizer = torch.optim.Adadelta(model.parameters(),lr=learning_rate)
-    batch_size = 22
+    batch_size = 16
     max_score = 0
 
     for epoch in range(epochs):
@@ -119,12 +121,17 @@ if __name__ == "__main__":
             batch_count = 0
 
             feat = []
+            pred = []
             for j in range(3):
-                feat.append(model.forward(Variable(img[j]).cuda()))
+                p, f = model.forward(Variable(img[j]).cuda())
+                feat.append(f)
+                if(j == 2):
+                    pred.append(p)
+
+            # LOSS COMPUTING
             for i in range(batch_size):
-                # herein the loss is computed
                 loss += triplet_loss([feat[0][i],feat[1][i],feat[2][i]], (sim[0][i],sim[1][i]), use_proposed)
-                loss += alpha_c * classfi_loss(feat[2][i],target[i], use_proposed)
+                loss += alpha_c * classfi_loss(pred[0][i], target[i], use_proposed)
                 batch_count += 1
 
             del feat
@@ -136,7 +143,7 @@ if __name__ == "__main__":
             loss.backward()
             optimizer.step()
 
-            if(o%10 == 0 and o != 0):
+            if(o%50 == 0 and o != 0):
                 model_path = "./result/params/prams_lr001_clas=True_epoch{}_iter{}_5.pth".format(epoch, o)
                 torch.save(model.state_dict(), model_path)
                 temp_score = test.test2(model_path)
