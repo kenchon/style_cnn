@@ -43,9 +43,25 @@ class Stylenet(nn.Module):
         x = x.view(-1, 3072)
         x_middle = self.linear1(x)
         x = self.linear2(x_middle)
-        #x = self.linear1(x)
         x = self.logsoftmax(x)
         return x, x_middle
+
+    def extract(self, input):
+        x = self.conv1(input)
+        x = self.conv2(x)
+        x = self.conv2_drop(x)
+        x = self.bn1(self.pool1(x))
+        x = self.conv3(x)
+        x = self.conv4_drop(self.conv4(x))
+        x = self.bn2(self.pool2(x))
+        x = self.conv5(x)
+        x = self.conv6(x)
+        x = self.conv6_drop(x)
+        x = self.bn3(self.pool3(x))
+        x = self.conv7(x)
+        x = x.view(-1, 3072)
+        x = self.linear1(x)
+        return x
 
 class LambdaBase(nn.Sequential):
     def __init__(self, fn, *args):
