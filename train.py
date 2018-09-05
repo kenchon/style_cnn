@@ -7,10 +7,6 @@ from PIL import Image
 
 import numpy as np
 from sklearn import svm
-from sklearn.model_selection import cross_val_score
-from sklearn.cross_validation import KFold
-from sklearn.model_selection import ShuffleSplit
-from sklearn.model_selection import GridSearchCV
 
 import subprocess as sp
 import load_model
@@ -149,12 +145,11 @@ if __name__ == "__main__":
             loss.backward()
             optimizer.step()
 
-            if(o%100 == 0 and o != 0):
+            if(o%100 == 0 and o == 0):
                 model_path = "./result/params/prams_lr001_clas=True_epoch{}_iter{}_5.pth".format(epoch, o)
                 torch.save(model.state_dict(), model_path)
-                temp_score = test.test2(model_path)
-                if(temp_score > max_score):
-                    ln.notify("{} {}".format(str(temp_score), model_path))
-                    max_score = temp_score
-                #ln.notify(mess)
+                torch.save(optimizer.state_dict(), 'optim.pth')
+                temp_score = test.test(model_path)
+                ln.notify("{} {}".format(str(temp_score), model_path))
+
                 print("{} {}".format(temp_score, max_score))
