@@ -19,7 +19,7 @@ SIZE = cs.SIZE
 w = cs.weights
 label_array = np.load("./noisy.npy")     # load numpy based labels
 use_proposed = True
-batch_size = 48
+batch_size = 84
 
 def classfi_loss(log_y, target, use_proposed = True):
     loss_c = 0
@@ -65,16 +65,18 @@ if __name__ == '__main__':
     loss_history = []
 
     extractor = load_model.model
+    extractor.cuda()
     extractor.train(False)
 
     model = LinearUnit()
+    model.cuda()
     # weight_dict = get_saved_dict()
     # model.load_state_dict(weight_dict)
 
     learning_rate = 0.01
     optimizer = torch.optim.Adadelta(model.parameters(),lr=learning_rate)
 
-    tensor = torch.Tensor(batch_size, 3, 384, 256)
+    tensor = torch.Tensor(batch_size, 3, 384, 256).cuda()
     #tensor.requires_grad_(False)
 
     for epoch in range(epochs):
