@@ -32,7 +32,7 @@ import image_sampling as sampler
 import stylenet
 import pandas as pd
 
-import scipy.stats as sp
+import scipy.stats as ss
 
 import mymodules.line_notify as ln
 
@@ -64,9 +64,6 @@ def test(params):
     home_dir = "../hipsterwars"
     styles = ["Hipster","Goth","Preppy","Pinup","Bohemian"]
 
-    feature_list = []
-    target_list = []
-
     f_lables = open(home_dir+"/skills.txt")
     lines = f_lables.readlines()
 
@@ -91,12 +88,11 @@ def test(params):
     path = params
     best_dict = {}
 
-    #model = load_model.model
     model = stylenet.get_model()
     model.load_state_dict(torch.load(path))
     model = model.cuda()
-    model.eval()        # use network as feature extractor
-    #print("loaded the model...")
+    model.eval()        # use as feature extractor
+
     """
     feature extraction
     """
@@ -107,8 +103,9 @@ def test(params):
             tensor = torch.Tensor(1, 3, 384, 256)
             path = "../hipsterwars/classes/"+ style + "/"+image+".jpg"
             tensor[0] = sampler.pix2tensor(sampler.id2pix(path, use_path = True))
+            tensor.requires_grad = False
             tensor = tensor.cuda()
-            pred, feature = model.forward(tensor)
+            feature = model.extract(tensor)
             feature = feature.cpu()
             feature_list.append(feature.data.numpy())
             target_list.append(count)
@@ -117,19 +114,16 @@ def test(params):
     feature = np.array(feature_list)
     feature = feature[:,0,:]          # shape of (1893,1,128) to (1893,128)
     target = np.array(target_list)
+
     """
     tune the hyperparameter C
     """
-
-    #clf_sets = [(svm.LinearSVC(penalty='l2', loss='squared_hinge', dual=True, tol=1e-3),
-    #np.logspace(-1, 2, 50), feature, target)]
-
     X = feature
-    #X = sp.stats.zscore(feature, axis = 1)
+    #X = ss.stats.zscore(feature, axis = 1)     # feature regularization
     Y = target
 
-    C_range = np.linspace(0.001, 0.05, 100)
-    gamma_range = np.linspace(0.0001, 0.0005, 30)
+    C_range = np.linspace(0.001, 0.1, 100)
+    gamma_range = np.linspace(0.0001, 0.01, 30)
     #param_grid = dict(gamma=gamma_range, C=C_range)
     param_grid = dict(C=C_range)
 
@@ -154,7 +148,7 @@ def test(params):
     return max(scores)
 
 
-def test2(parameter):
+def test2(model_path):
     """
     load hipster wars dataset
     """
@@ -164,9 +158,6 @@ def test2(parameter):
 
     home_dir = "../hipsterwars"
     styles = ["Hipster","Goth","Preppy","Pinup","Bohemian"]
-
-    feature_list = []
-    target_list = []
 
     f_lables = open(home_dir+"/skills.txt")
     lines = f_lables.readlines()
@@ -189,10 +180,10 @@ def test2(parameter):
     dictlist = []
     models  = parameter
 
-    model_path = parameter
     best_dict = {}
 
     model = stylenet.get_model()
+    #model = load_model.model
     model.load_state_dict(torch.load(model_path))
     model = model.cuda()
     model.eval()        # use network as feature extractor
@@ -207,27 +198,28 @@ def test2(parameter):
             tensor = torch.Tensor(1, 3, 384, 256)
             img_path = "../hipsterwars/classes/"+ style + "/"+image+".jpg"
             tensor[0] = sampler.pix2tensor(sampler.id2pix(img_path, use_path = True))
+            tensor.requires_grad = False
             tensor = tensor.cuda()
-            pred, feature = model.forward(tensor)
-            feature = feature.cpu()
-            feature_list.append(feature.data.numpy())
+            feature = model.extract(tensor)
+            #feature = feature.cpu()
+            #feature_list.append(feature.data.numpy())
+            feature_list.append(feature)
             target_list.append(count)
         count += 1
 
     feature = np.array(feature_list)
     feature = feature[:,0,:]          # shape of (1893,1,128) to (1893,128)
     target = np.array(target_list)
-    #print("got features...")
+    print("got features...")
 
     """
     tune the hyperparameter C
     """
-
     #clf_sets = [(svm.LinearSVC(penalty='l2', loss='squared_hinge', dual=True, tol=1e-3),
     #np.logspace(-1, 2, 50), feature, target)]
 
     X = feature
-    #X = sp.stats.zscore(feature, axis = 1)
+    #X = ss.stats.zscore(feature, axis = 1)
     Y = target
 
     C_range = np.linspace(0.001, 0.05, 100)
@@ -261,17 +253,8 @@ def test2(parameter):
 
     #print("max score on the tuning is {}".format(max(scores)))
 
-    N = 100
+    N = 10
     scoresN = np.zeros(N)
-
-    #print("the best score of 075")
-    #clf = svm.LinearSVC(C=0.004132323232323233, class_weight='balanced', dual=True,
-    #fit_intercept=True, intercept_scaling=1, loss='squared_hinge',
-    #max_iter=1000, multi_class='ovr', penalty='l2', random_state=None,
-    #tol=0.0001, verbose=0)
-    #rs=ShuffleSplit(n_splits=100, train_size=0.8,random_state=41)
-
-    #fr = open("result_2018523.txt","a")
 
     """
     trline = []
@@ -299,20 +282,11 @@ def test2(parameter):
         rs=ShuffleSplit(n_splits=100, train_size=0.9,random_state=i)
         scores = cross_val_score(clf, feature, target, cv=rs)
         scoresN[i] = np.mean(scores)
-        #print(i, np.mean(scores))
-
-        #print("here's a result:")
-        #print(mean_score)
-        #print(scores)
-
-    best_dict["best_seed"] = np.argmax(scoresN)
-    best_dict["model"] = model_path
-    best_dict["score"] = np.max(scoresN)
+        print(i, np.mean(scores))
 
     #print("{} {}".format(np.mean(scoresN), np.std(scoresN)))
     df = pd.DataFrame(scoresN)
     #df.to_csv("{}_linear.csv".format(path))
-
 
     """
     f_result = open(home_dir+"/result_proposed.txt")
@@ -322,11 +296,8 @@ def test2(parameter):
     message = "{} {} {}".format(max(scoresN),clf, parameter)
     #ln.notify(message)
 
-    dictlist.append(best_dict)
-    #print(best_dict)
-
     return max(scoresN)
 
 if __name__ == "__main__":
-    #test2("./result/params/prams_lr0001_clas=True_iter53500_2.pth")
-    test2("stylenet.pth")
+    test2("./result/params/prams_lr001_clas=True_epoch0_iter50_5.pth")
+    #test2("./stylenet.pth")
