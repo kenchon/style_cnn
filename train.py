@@ -67,6 +67,17 @@ def classfi_loss(log_y, target, use_proposed = True):
         loss_c = loss_c/N
         return loss_c
 
+def insert_trained_weight(model, path_to_weight = "linear_weight.pth"):
+
+    weight_dict = torch.load(path_to_weight)
+    layers = ['linear2.weight', 'linear2.bias']
+    state_dict = model.state_dict()
+
+    for layer in layers:
+        state_dict[layer] = weight_dict[layer]
+    model.load_state_dict(state_dict)
+
+    return model
 
 if __name__ == "__main__":
     w = cs.weights
@@ -74,6 +85,7 @@ if __name__ == "__main__":
 
     #model = load_model.model
     model = stylenet.get_model()
+    model = insert_trained_weight(model)
     model = model.cuda()
 
     # learning settings
@@ -84,21 +96,17 @@ if __name__ == "__main__":
     max_score = 0
 
     for epoch in range(epochs):
-        if(use_proposed):
-            f_sim = open("./triplet.csv","r")
-        else:
-            f_sim = open("./triplet_pre.csv","r")
 
+        f_sim_path = "./triplet.csv" if(use_proposed) else "./triplet_pre.csv"
+        f_sim      = open(f_sim_path,"r")
         reader_csv = csv.reader(f_sim)
-        row = []
 
+        row = []
         for k,i in enumerate(reader_csv):
             row.append(i)
 
         lines = list(range(len(row)))
         random.shuffle(lines)
-
-        #row = row[:1235520]
 
         batchs = []
         idx = 0
@@ -117,7 +125,6 @@ if __name__ == "__main__":
 
             # img, sim are list where i th column holds i th triplet
             img, sim, target = triplet_sampling(row, batch, do_classification = True)
-
             batch_count = 0
 
             feat = []
@@ -136,14 +143,13 @@ if __name__ == "__main__":
 
             del feat
             loss = loss/batch_size
-            #print(o, loss.cpu().detach().numpy())
+            print(o, loss.cpu().detach().numpy())
 
             optimizer.zero_grad()
-
             loss.backward()
             optimizer.step()
 
-            if(o%50 == 0 and o != 0):
+            if(o%100 == 0 and o != 0):
                 model_path = "./result/params/prams_lr001_clas=True_epoch{}_iter{}_5.pth".format(epoch, o)
                 torch.save(model.state_dict(), model_path)
                 temp_score = test.test2(model_path)
