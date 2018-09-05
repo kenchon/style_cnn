@@ -41,10 +41,10 @@ class Stylenet(nn.Module):
         x = self.bn3(self.pool3(x))
         x = self.conv7(x)
         x = x.view(-1, 3072)
-        x_middle = self.linear1(x)
-        x = self.linear2(x_middle)
+        x_128 = self.linear1(x)
+        x = self.linear2(x_128)
         x = self.logsoftmax(x)
-        return x, x_middle
+        return x, x_128
 
     def extract(self, input):
         x = self.conv1(input)
@@ -78,7 +78,7 @@ class Lambda(LambdaBase):
     def forward(self, input):
         return self.lambda_func(self.forward_prepare(input))
 
-def get_model():
+def get_model(params_path = "stylenet.pth"):
     modelA = nn.Sequential( # Sequential,
     	nn.Conv2d(3,64,(3, 3),(1, 1),(1, 1)),
     	nn.ReLU(),
@@ -108,7 +108,7 @@ def get_model():
         #nn.Linear(128, 40)
         )
 
-    modelA.load_state_dict(torch.load("stylenet.pth"))
+    modelA.load_state_dict(torch.load(params_path))
     modelB = Stylenet()
 
     # Get Sequential state dict
@@ -125,6 +125,11 @@ def get_model():
     modelB.load_state_dict(state_dict)
 
     return modelB
+
+def load_model_with_prams(params_path):
+    model = get_model()
+    model.load_state_dict(torch.load(params_path))
+    return model
 
 if __name__ == "__main__":
     print("model {}".format(modelB))
