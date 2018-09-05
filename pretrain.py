@@ -6,6 +6,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import mymodules.line_notify as ln
+from collections import OrderedDict as od
 
 import load_model
 import compute_similarity as cs
@@ -38,14 +39,23 @@ def classfi_loss(log_y, target, use_proposed = True):
         loss_c = loss_c/N
         return loss_c
 
+def get_saved_dict(path_to_weight = "linear_weight.pth"):
+
+    dic = torch.load(path_to_weight)
+    new_dict = od()
+    new_dict['linear2.weight'] = dic['linear1.weight']
+    new_dict['linear2.bias'] = dic['linear1.bias']
+
+    return new_dict
+
 class LinearUnit(nn.Module):
     def __init__(self):
         super(LinearUnit, self).__init__()
-        self.linear1 = nn.Linear(128, N_tags)
+        self.linear2 = nn.Linear(128, N_tags)
         self.logsoftmax = nn.LogSoftmax(dim = 1)
 
     def forward(self, input):
-        x = self.linear1(input)
+        x = self.linear2(input)
         x = self.logsoftmax(x)
         return x
 
@@ -58,6 +68,9 @@ if __name__ == '__main__':
     extractor.train(False)
 
     model = LinearUnit()
+    # weight_dict = get_saved_dict()
+    # model.load_state_dict(weight_dict)
+
     learning_rate = 0.01
     optimizer = torch.optim.Adadelta(model.parameters(),lr=learning_rate)
 
@@ -107,5 +120,5 @@ if __name__ == '__main__':
             path_to_img = cur_path + 'loss_progress.png'
             plt.savefig(path_to_img)
             ln.send_image_(path_to_img, 'loss progress')
-
-    torch.save(model.state_dict(), 'linear_weight.pth')
+            torch.save(model.state_dict(), 'linear_weight.pth')
+            torch.save(optimizer.state_dict(), 'optim.pth')
