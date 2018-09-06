@@ -75,6 +75,10 @@ def insert_trained_weight(model, path_to_weight = "linear_weight.pth"):
 
     return model
 
+def save_loss(loss_prog):
+    with open('loss_progress.txt', mode = 'a') as f_loss:
+        f_loss.write('\n'.join(loss_prog))
+
 if __name__ == "__main__":
     w = cs.weights
     use_proposed = True
@@ -90,6 +94,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adadelta(model.parameters(),lr=learning_rate)
     batch_size = 16
     max_score = 0
+    loss_progress = []
 
     for epoch in range(epochs):
 
@@ -139,17 +144,20 @@ if __name__ == "__main__":
 
             del feat
             loss = loss/batch_size
-            print(o, loss.cpu().detach().numpy())
+            print("{} {:.4f}".format(o, loss.cpu().detach().numpy()))
+            loss_progress.append("{:.4f}".format(loss.cpu().detach().numpy()))
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-            if(o%100 == 0 and o == 0):
+            if(o%10000 == 0 and o != 0):
                 model_path = "./result/params/prams_lr001_clas=True_epoch{}_iter{}_5.pth".format(epoch, o)
                 torch.save(model.state_dict(), model_path)
                 torch.save(optimizer.state_dict(), 'optim.pth')
                 temp_score = test.test(model_path)
                 ln.notify("{} {}".format(str(temp_score), model_path))
+                save_loss(loss_progress)
+                loss_progress = []
 
                 print("{} {}".format(temp_score, max_score))
