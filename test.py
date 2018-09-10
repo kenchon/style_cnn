@@ -35,10 +35,11 @@ import pandas as pd
 import scipy.stats as sp
 import mymodules.line_notify as ln
 
-def test(path_to_weight, use_standard_output = False, seek_best = True):
+def test(path_to_weight, use_standard_output = False, seek_best = True, do_classification = True):
     """
     load hipster wars dataset
     """
+    use_standard_output = True
 
     feature_list = []           # which keeps output of 128 dim features
     target_list = []            # which keeps corresponding target label
@@ -64,10 +65,12 @@ def test(path_to_weight, use_standard_output = False, seek_best = True):
     """
     load model
     """
-
-    model = stylenet.Stylenet()
+    # load model
+    #model = stylenet.get_model()
+    #model.load_state_dict(torch.load(path_to_weight))
+    model = load_model.model
     model.load_state_dict(torch.load(path_to_weight))
-    model = model.cuda()
+    model.cuda()
     model.eval()        # use model as feature extractor
 
     """
@@ -81,7 +84,7 @@ def test(path_to_weight, use_standard_output = False, seek_best = True):
             path = "../hipsterwars/classes/"+ style + "/"+image+".jpg"
             tensor[0] = sampler.pix2tensor(sampler.id2pix(path, use_path = True))
             tensor = tensor.cuda()
-            feature = model.extract(tensor)
+            feature = model.forward(tensor)
             feature = feature.cpu()
             feature_list.append(feature.data.numpy())
             target_list.append(count)
@@ -124,9 +127,9 @@ def test(path_to_weight, use_standard_output = False, seek_best = True):
         scoresN[i] = np.mean(scores)
         if use_standard_output: print(i, np.mean(scores))
 
-    message = "{} {} {}".format(max(scoresN),clf, path_to_weight)
-    if use_standard_output: print(max(scoreN))
-    ln.notify(message)
+    # message = "{} {} {}".format(max(scoresN),clf, path_to_weight)
+    if use_standard_output: print(max(scoresN))
+    # ln.notify(message)
 
     return max(scoresN)
 
@@ -242,36 +245,6 @@ def test2(parameter):
     N = 100
     scoresN = np.zeros(N)
 
-    #print("the best score of 075")
-    #clf = svm.LinearSVC(C=0.004132323232323233, class_weight='balanced', dual=True,
-    #fit_intercept=True, intercept_scaling=1, loss='squared_hinge',
-    #max_iter=1000, multi_class='ovr', penalty='l2', random_state=None,
-    #tol=0.0001, verbose=0)
-    #rs=ShuffleSplit(n_splits=100, train_size=0.8,random_state=41)
-
-    #fr = open("result_2018523.txt","a")
-
-    """
-    trline = []
-    preline = []
-    for i in range(N):
-        rs=ShuffleSplit(n_splits=100, train_size=0.9,random_state=i)
-        matrix = [[0]*5]*5
-        for tr,ts in rs.split(X):
-            clf.fit(X[tr],Y[tr])
-            pre = clf.predict(X[ts])
-            matrix += confusion_matrix(Y[ts], pre)
-            trline.extend(Y[ts.tolist()])
-            preline.extend(pre.tolist())
-        scores = cross_val_score(clf, feature, target, cv=rs)
-        scoresN[i] = np.mean(scores)
-        #fr.write(matrix)
-        #fr.write(scoresN[i])
-        print(scoresN[i])
-        print(matrix)
-        print(classification_report(trline, preline,target_names = styles))
-    """
-
     for i in range(N):
         clf = grid.best_estimator_
         rs=ShuffleSplit(n_splits=100, train_size=0.9,random_state=i)
@@ -279,26 +252,8 @@ def test2(parameter):
         scoresN[i] = np.mean(scores)
         print(i, np.mean(scores))
 
-        #print("here's a result:")
-        #print(mean_score)
-        #print(scores)
-
-    best_dict["best_seed"] = np.argmax(scoresN)
-    best_dict["model"] = model_path
-    best_dict["score"] = np.max(scoresN)
-
-    #print("{} {}".format(np.mean(scoresN), np.std(scoresN)))
-    df = pd.DataFrame(scoresN)
-    #df.to_csv("{}_linear.csv".format(path))
-
-
-    """
-    f_result = open(home_dir+"/result_proposed.txt")
-    f_result.write("{} {}".format(np.mean(scoresN), np.std(scoresN)))
-    f_result.close()
-    """
-    message = "{} {} {}".format(max(scoresN),clf, parameter)
-    ln.notify(message)
+    # message = "{} {} {}".format(max(scoresN),clf, parameter)
+    # ln.notify(message)
 
     dictlist.append(best_dict)
     print(best_dict)
@@ -306,4 +261,5 @@ def test2(parameter):
     return str(max(scoresN))
 
 if __name__ == "__main__":
-    test("./result/params/prams_lr001_clas=True_epoch0_iter100_5.pth")
+    #test("./result/params/prams_lr001_clas=True_epoch0_iter100_5.pth")
+    test('./result/params/prams_lr001_clas=True_epoch0_iter1000_5.pth', do_classification = False)
