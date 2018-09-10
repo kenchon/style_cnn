@@ -3,6 +3,7 @@ import random
 import numpy as np
 
 use_proposed = False
+SIZE = 405588
 
 f_wei = open("weights.txt","r")
 weights = []
@@ -12,6 +13,10 @@ for line in f_wei:
     line = line.strip("\n")
     line = line.split("\t")
     weights.append(int(line[1]))
+
+sum_w = 0
+for w in weights:
+    sum_w += w
 
 label_array = np.load("./noisy.npy")
 
@@ -53,7 +58,6 @@ def compute_simlarity(img1, img2, use_proposed = True):
     return inter/union
 
 def sampling(use_proposed = True):
-    SIZE = 405588
 
     # compute similarity of images and save image triplet
     while(True):
