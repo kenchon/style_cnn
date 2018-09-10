@@ -11,6 +11,7 @@ from collections import OrderedDict as od
 import load_model
 import compute_similarity as cs
 import image_sampling as smp
+import train as tr
 
 cur_path = os.getcwd()
 N_tags = 66
@@ -19,24 +20,23 @@ SIZE = cs.SIZE
 w = cs.weights
 label_array = np.load("./noisy.npy")     # load numpy based labels
 use_proposed = True
-batch_size = 84
+batch_size = 32
+sum_w = cs.sum_w
 
-def classfi_loss(log_y, target, use_proposed = True):
+def classfi_loss(conf, target, use_proposed = True):
     loss_c = 0
-
     if(use_proposed):
-        sum_w = 0
-        for t in target:
-            sum_w += w[t]
-            loss_c += -w[t]*log_y[t]   # cross entropy
-        loss_c = loss_c/(sum_w)
-        return loss_c
+        for t in range(N_tags):
+            temp_loss = -(int(target[t]))*torch.log(conf[t]) - (1 - int(target[t]))*torch.log(1 - conf[t])    # cross entropy
+            temp_loss *= w[t]
+            loss_c += temp_loss
+        return loss_c/sum_w
 
     else:
-        N = len(target)
-        for t in target:
-            loss_c += -1*log_y[t]   # cross entropy
-        loss_c = loss_c/N
+        for t in range(N_tags):
+            loss_c += -(target[n][t])*conf[t] + (1 - target[n][t])*(1 - conf[t])    # cross entropy
+        S = len(np.where(target[n]== 1)[0])
+        loss_c = loss_c/S
         return loss_c
 
 def get_saved_dict(path_to_weight = "linear_weight.pth"):
@@ -52,17 +52,17 @@ class LinearUnit(nn.Module):
     def __init__(self):
         super(LinearUnit, self).__init__()
         self.linear2 = nn.Linear(128, N_tags)
-        self.logsoftmax = nn.LogSoftmax(dim = 1)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, input):
         x = self.linear2(input)
-        x = self.logsoftmax(x)
+        x = self.sigmoid(x)
         return x
 
 if __name__ == '__main__':
     #print(label_array.shape) # TEMP:
-    epochs = 15000
-    loss_history = []
+    epochs = 10000
+    loss_progress = []
 
     extractor = load_model.model
     extractor.cuda()
@@ -73,54 +73,43 @@ if __name__ == '__main__':
     # weight_dict = get_saved_dict()
     # model.load_state_dict(weight_dict)
 
-    learning_rate = 0.01
-    optimizer = torch.optim.Adadelta(model.parameters(),lr=learning_rate)
-
-    tensor = torch.Tensor(batch_size, 3, 384, 256).cuda()
-    #tensor.requires_grad_(False)
+    learning_rate = 0.1
+    optimizer = torch.optim.Adam(model.parameters(),amsgrad = True,  weight_decay = 5e-4)
 
     for epoch in range(epochs):
+        if epoch%500 == 0 and epoch != 0:
+            tr.save_loss(loss_progress, add = "_pretrain")
+            loss_progress = []
+            path_to_fig = tr.send_prog_image(add = "_pretrain")
+            ln.send_image_(path_to_fig, 'loss progress')
+            torch.save(model.state_dict(), 'linear_weight.pth')
+            torch.save(optimizer.state_dict(), 'optim.pth')
+            learning_rate *= 0.1
+            optimizer = torch.optim.Adam(model.parameters(),amsgrad = True,  weight_decay = 5e-4)
 
         # image sampling
+        tensor = torch.Tensor(batch_size, 3, 384, 256).cuda()
+
+        #tensor.requires_grad_(False)
         target = list(range(batch_size))         # class labels
         count = 0
         while(count != batch_size):
             id = random.randint(0, SIZE)
-            #print(id) # TEMP:
-
             if(id not in il_list):
                 tensor[count] = smp.id2tensor(str(id))
-                #print(label_array[id]) # TEMP:
-                #print(list(np.where(label_array[id] == 1))[0]) # TEMP:
-                target[count] = list(np.where(label_array[id] == 1))[0]
+                target[count] = label_array[id]
                 count += 1
 
-        #print(target) # TEMP:
-
         x_128dim = extractor.forward(tensor)
-        #f.requires_grad = True
-
-        log_y = model.forward(x_128dim)
+        conf = model.forward(x_128dim)
 
         loss = 0
         for i in range(batch_size):
-            loss += classfi_loss(log_y[i], target[i], use_proposed)
-        #print(loss.shape)
+            loss += classfi_loss(conf[i], target[i], use_proposed)
 
         loss /= batch_size
         optimizer.zero_grad()
-        loss.sum().backward()
         optimizer.step()
 
-        loss = loss.cpu().detach().numpy()
-        print(epoch, loss)
-        loss_history.append(loss)
-
-        if epoch%100 == 0 and epoch != 0:
-            Y = np.array(loss_history)
-            plt.plot(Y)
-            path_to_img = cur_path + 'loss_progress.png'
-            plt.savefig(path_to_img)
-            ln.send_image_(path_to_img, 'loss progress')
-            torch.save(model.state_dict(), 'linear_weight.pth')
-            torch.save(optimizer.state_dict(), 'optim.pth')
+        print(epoch, loss.cpu().detach().numpy())
+        loss_progress.append(loss.cpu().detach().numpy())
