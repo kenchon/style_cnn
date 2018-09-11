@@ -26,7 +26,7 @@ class Stylenet(nn.Module):
         self.linear1 = nn.Linear(3072,128)
         self.linear2 = nn.Linear(128, N_tags)
         #self.logsoftmax = nn.LogSoftmax()
-        self.sigmoid = nn.Sigmoid(N_tags)
+        self.sigmoid = nn.Sigmoid()
 
     def forward(self, input):
         x = self.conv1(input)
