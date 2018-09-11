@@ -90,7 +90,7 @@ def tag_sampling(size, tag_idx):
     return tensors
 
 
-def triplet_sampling(row, batch, do_classification = False):
+def triplet_sampling(row, batch, do_classification = True):
     u""" sampling method for triplet learning
     input: row, batch
     output: three tensors of (batch_size, 3, 384, 256) and similarity scores
@@ -101,6 +101,7 @@ def triplet_sampling(row, batch, do_classification = False):
     sim_pos = list(range(batch_size))
     sim_neg = list(range(batch_size))
     target = list(range(batch_size))
+    target_npy = list(range(batch_size))
 
     count = 0
     bc = 0
@@ -113,13 +114,14 @@ def triplet_sampling(row, batch, do_classification = False):
         sim_pos[count] = (float(row[idx][3]))
         sim_neg[count] = (float(row[idx][4]))
         target[count] = list(np.where(label_array[int(row[idx][2])] == 1))[0]
+        target_npy[count] = label_array[int(row[idx][2])]
         count += 1
 
     img = [ref_tensor, pos_tensor, neg_tensor]
     sim = [sim_pos, sim_neg]
 
     if(do_classification):
-        return img, sim, target
+        return img, sim, target, target_npy
     else:
         return img, sim
 
