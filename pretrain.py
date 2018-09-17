@@ -22,17 +22,16 @@ w = cs.weights
 label_array = np.load("./noisy.npy")     # load numpy based labels
 use_proposed = True
 batch_size = 48
-sum_w = cs.sum_w
+#sum_w = cs.sum_w
 delt = 0
 
 def classfi_loss(conf, target, use_proposed = True):
     loss_c = 0
+    sum_w = 0
     if(use_proposed):
-        for t in range(N_tags):
-            #temp_loss = -(int(target[t]))*torch.log(conf[t]) - (1 - int(target[t]))*torch.log(1 - conf[t])    # cross entropy
-            temp_loss = -(int(target[t]))*torch.log(conf[t])
-            temp_loss *= w[t]
-            loss_c += temp_loss
+        for t in target:
+            sum_w += w[t]
+            loss_c += -w[t]*torch.log(conf[t])   # cross entropy
         return loss_c/sum_w
 
     else:
@@ -96,10 +95,10 @@ if __name__ == '__main__':
             id = random.randint(0, SIZE)
             if(id not in il_list):
                 tensor[count] = smp.id2tensor(str(id))
-                target[count] = label_array[id]
+                target[count] = list(np.where(label_array[id] == 1))[0]
                 count += 1
 
-        conf, _ = model.forward(tensor)
+        conf = model.extract(tensor)
 
         loss = 0
         for i in range(batch_size):
