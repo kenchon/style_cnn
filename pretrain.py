@@ -12,6 +12,7 @@ import load_model
 import compute_similarity as cs
 import image_sampling as smp
 import train as tr
+import stylenet
 
 cur_path = os.getcwd()
 N_tags = 66
@@ -20,14 +21,16 @@ SIZE = cs.SIZE
 w = cs.weights
 label_array = np.load("./noisy.npy")     # load numpy based labels
 use_proposed = True
-batch_size = 32
+batch_size = 48
 sum_w = cs.sum_w
+delt = 0
 
 def classfi_loss(conf, target, use_proposed = True):
     loss_c = 0
     if(use_proposed):
         for t in range(N_tags):
-            temp_loss = -(int(target[t]))*torch.log(conf[t]) - (1 - int(target[t]))*torch.log(1 - conf[t])    # cross entropy
+            #temp_loss = -(int(target[t]))*torch.log(conf[t]) - (1 - int(target[t]))*torch.log(1 - conf[t])    # cross entropy
+            temp_loss = -(int(target[t]))*torch.log(conf[t])
             temp_loss *= w[t]
             loss_c += temp_loss
         return loss_c/sum_w
@@ -61,31 +64,27 @@ class LinearUnit(nn.Module):
 
 if __name__ == '__main__':
     #print(label_array.shape) # TEMP:
-    epochs = 10000
+    epochs = 1000000
+    split = 1000
     loss_progress = []
 
-    extractor = load_model.model
-    extractor.cuda()
-    extractor.train(False)
-
-    model = LinearUnit()
+    model = stylenet.Stylenet()
     model.cuda()
-    # weight_dict = get_saved_dict()
-    # model.load_state_dict(weight_dict)
 
-    learning_rate = 0.1
-    optimizer = torch.optim.Adam(model.parameters(),amsgrad = True,  weight_decay = 5e-4)
+    learning_rate = 0.01
+    #optimizer = torch.optim.Adadelta(model.parameters(), weight_decay = 5e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
 
     for epoch in range(epochs):
-        if epoch%500 == 0 and epoch != 0:
+        if (epoch%split == 0 and epoch != 0):
             tr.save_loss(loss_progress, add = "_pretrain")
             loss_progress = []
             path_to_fig = tr.send_prog_image(add = "_pretrain")
             ln.send_image_(path_to_fig, 'loss progress')
             torch.save(model.state_dict(), 'linear_weight.pth')
             torch.save(optimizer.state_dict(), 'optim.pth')
-            learning_rate *= 0.1
-            optimizer = torch.optim.Adam(model.parameters(),amsgrad = True,  weight_decay = 5e-4)
+            learning_rate *= 0.9
+            optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
 
         # image sampling
         tensor = torch.Tensor(batch_size, 3, 384, 256).cuda()
@@ -100,8 +99,7 @@ if __name__ == '__main__':
                 target[count] = label_array[id]
                 count += 1
 
-        x_128dim = extractor.forward(tensor)
-        conf = model.forward(x_128dim)
+        conf, _ = model.forward(tensor)
 
         loss = 0
         for i in range(batch_size):
