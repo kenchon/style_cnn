@@ -21,17 +21,17 @@ SIZE = cs.SIZE
 w = cs.weights
 label_array = np.load("./noisy.npy")     # load numpy based labels
 use_proposed = True
-batch_size = 48
-#sum_w = cs.sum_w
+batch_size = 50
+sum_w = cs.sum_w
 delt = 0
 
 def classfi_loss(conf, target, use_proposed = True):
     loss_c = 0
-    sum_w = 0
     if(use_proposed):
-        for t in target:
-            sum_w += w[t]
-            loss_c += -w[t]*torch.log(conf[t])   # cross entropy
+        for t in range(N_tags):
+            y_k = (target[t] - 0.5) * 2
+            loss_c += w[t]*torch.log(1 + torch.exp(-int(y_k) * conf[t]))    # cross entropy
+        #    print(type(loss_c), type(conf[t]), type(-int(y_k) * conf[t]))
         return loss_c/sum_w
 
     else:
@@ -62,15 +62,16 @@ class LinearUnit(nn.Module):
         return x
 
 if __name__ == '__main__':
-    #print(label_array.shape) # TEMP:
     epochs = 1000000
-    split = 1000
+    split = 100
     loss_progress = []
 
     model = stylenet.Stylenet()
+    # model.load_state_dict(torch.load('linear_weight.pth'))
     model.cuda()
+    model.train()
 
-    learning_rate = 0.01
+    learning_rate = 1e-2
     #optimizer = torch.optim.Adadelta(model.parameters(), weight_decay = 5e-4)
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
 
@@ -78,16 +79,15 @@ if __name__ == '__main__':
         if (epoch%split == 0 and epoch != 0):
             tr.save_loss(loss_progress, add = "_pretrain")
             loss_progress = []
-            path_to_fig = tr.send_prog_image(add = "_pretrain")
+            path_to_fig = tr.send_prog_image(add = "_pretrain", split = 50)
             ln.send_image_(path_to_fig, 'loss progress')
             torch.save(model.state_dict(), 'linear_weight.pth')
             torch.save(optimizer.state_dict(), 'optim.pth')
-            learning_rate *= 0.9
-            optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
 
         # image sampling
         tensor = torch.Tensor(batch_size, 3, 384, 256).cuda()
 
+        optimizer.zero_grad()
         #tensor.requires_grad_(False)
         target = list(range(batch_size))         # class labels
         count = 0
@@ -95,7 +95,7 @@ if __name__ == '__main__':
             id = random.randint(0, SIZE)
             if(id not in il_list):
                 tensor[count] = smp.id2tensor(str(id))
-                target[count] = list(np.where(label_array[id] == 1))[0]
+                target[count] = label_array[id]
                 count += 1
 
         conf = model.extract(tensor)
@@ -105,7 +105,7 @@ if __name__ == '__main__':
             loss += classfi_loss(conf[i], target[i], use_proposed)
 
         loss /= batch_size
-        optimizer.zero_grad()
+        loss.backward()
         optimizer.step()
 
         print(epoch, loss.cpu().detach().numpy())
