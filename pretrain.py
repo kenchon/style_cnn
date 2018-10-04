@@ -156,17 +156,17 @@ class LinearUnit(nn.Module):
 
 if __name__ == '__main__':
     epochs = 1000000
-    split = 1000
+    split = 2000
     loss_progress = []
 
     stopped = 0
 
     model = stylenet.Stylenet()
-    #model.load_state_dict(torch.load('linear_weight_softmax_notpro_{}.pth'.format(stopped)))
+    #model.load_state_dict(torch.load('linear_weight_softmax_pro_{}.pth'.format(stopped)))
     model.cuda()
     model.train()
 
-    learning_rate = 1e-3
+    learning_rate = 1e-4
     #optimizer = torch.optim.Adadelta(model.parameters(), weight_decay = 5e-4)
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
 
@@ -177,7 +177,7 @@ if __name__ == '__main__':
             torch.save(model.state_dict(), model_path)
             torch.save(optimizer.state_dict(), 'optim_softmax.pth')
 
-            temp_score = test.test(model_path, do_classification = True)
+            temp_score = test.test(model_path, do_classification = True, model = model)
             #temp_score = 0.588
             path_to_fig = get_loss_acc_fig(loss_progress, temp_score)
             ln.send_image_(path_to_fig, 'loss progress')
@@ -187,7 +187,7 @@ if __name__ == '__main__':
             #optimizer = torch.optim.Adam(model.parameters(), lr = dic['lr'], weight_decay = 5e-4)
             #optimizer.load_state_dict(torch.load('optim_softmax.pth'))
 
-            learning_rate *= 0.8
+            learning_rate *= 0.65
             optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
             loss_progress = []
             #if(loss_progress[])
