@@ -12,7 +12,6 @@ from math import *
 #label_array = np.load("./verified.npy")     # load numpy based labels
 label_array = np.load("./noisy.npy")     # load numpy based labels
 
-
 with open("./photos.txt","r") as f:
     photos = f.readlines()
     N_img = len(photos)
@@ -30,6 +29,7 @@ def pix2tensor(pixel_img):
     preprocess = transforms.Compose([
         transforms.Resize((384,256)),
         transforms.ToTensor(),
+        #transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         normalize
     ])
 
@@ -142,5 +142,7 @@ def number_of_image(tag_idx):
     return np.where(label_array[:, tag_idx] == 1)[0].shape[0]
 
 if __name__ == "__main__":
-    tensor = id_sampling(1)
-    print(number_of_image(1))
+    #tensor = id_sampling("1")
+    #print(number_of_image(1))
+    print(id2tensor("1"))
+    print(id2tensor("1").size())
