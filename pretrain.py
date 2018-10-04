@@ -8,6 +8,7 @@ import os
 import matplotlib.pyplot as plt
 import mymodules.line_notify as ln
 from collections import OrderedDict as od
+from math import log, exp
 
 import load_model
 import compute_similarity as cs
@@ -15,6 +16,7 @@ import image_sampling as smp
 import train as tr
 import stylenet
 import test
+import json
 
 cur_path = os.getcwd()
 N_tags = 66
@@ -22,7 +24,7 @@ il_list = cs.il_list        # ilegal photo ids
 SIZE = cs.SIZE
 w = cs.weights
 label_array = np.load("./noisy.npy")     # load numpy based labels
-use_proposed = True
+use_proposed = False
 batch_size = 50
 sum_w = cs.sum_w
 delt = 0
@@ -39,6 +41,24 @@ def classfi_loss(conf, target, use_proposed = True):
         for t in range(N_tags):
             y_k = (target[t] - 0.5) * 2
             loss_c += torch.log(1 + torch.exp(-int(y_k) * conf[t]))    # cross entropy
+        return loss_c/N_tags
+
+def classfi_loss_with_binary_output(conf, target, use_proposed = True):
+    """
+    E.Simo-Serra+,CVPR2016 eq.(7) for details
+    """
+    loss_c = 0
+    if(use_proposed):
+        for t in range(N_tags):
+            x0 = t*2
+            x1 = t*2 + 1
+            loss_c += w[t]*(-target[t] + log( exp(x0) + exp(x1)))
+        return loss_c/sum_w
+    else:
+        for t in range(N_tags):
+            x0 = t*2
+            x1 = t*2 + 1
+            loss_c += (-target[t] + log( exp(x0) + exp(x1)))
         return loss_c/N_tags
 
 def classfi_loss_softmax(conf, target, use_proposed = True):
@@ -114,6 +134,15 @@ def get_prog_image(add = "", split = 100):
 
     return path_to_img
 
+def get_setting():
+    with open('learning_config.txt', 'r') as f:
+        lines = f.readlines()
+    dic = {}
+    for l in lines:
+        l = l.strip().split(":")
+        dic.update({l[0]:float(l[1])})
+    return  dic
+
 class LinearUnit(nn.Module):
     def __init__(self):
         super(LinearUnit, self).__init__()
@@ -130,29 +159,37 @@ if __name__ == '__main__':
     split = 1000
     loss_progress = []
 
+    stopped = 0
+
     model = stylenet.Stylenet()
-    #model.load_state_dict(torch.load('linear_weight_softmax.pth'))
+    #model.load_state_dict(torch.load('linear_weight_softmax_notpro_{}.pth'.format(stopped)))
     model.cuda()
     model.train()
 
-    learning_rate = 1e-4
+    learning_rate = 1e-3
     #optimizer = torch.optim.Adadelta(model.parameters(), weight_decay = 5e-4)
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
 
-    for epoch in range(epochs):
-        if (epoch%split == 0 and epoch != 0):
+    for epoch in range(stopped, epochs):
+        if (epoch%split == 0 and epoch != stopped):
 
-            model_path = 'linear_weight_softmax_{}.pth'.format(epoch)
+            model_path = 'linear_weight_softmax_pro_{}.pth'.format(epoch)
             torch.save(model.state_dict(), model_path)
             torch.save(optimizer.state_dict(), 'optim_softmax.pth')
 
-            temp_score = test.test(model_path)
+            temp_score = test.test(model_path, do_classification = True)
             #temp_score = 0.588
             path_to_fig = get_loss_acc_fig(loss_progress, temp_score)
             ln.send_image_(path_to_fig, 'loss progress')
             ln.notify('{} {}'.format(str(temp_score), model_path))
-            loss_progress = []
 
+            #dic = get_setting()
+            #optimizer = torch.optim.Adam(model.parameters(), lr = dic['lr'], weight_decay = 5e-4)
+            #optimizer.load_state_dict(torch.load('optim_softmax.pth'))
+
+            learning_rate *= 0.8
+            optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
+            loss_progress = []
             #if(loss_progress[])
 
         # image sampling
@@ -169,7 +206,7 @@ if __name__ == '__main__':
                 target[count] = label_array[id]
                 count += 1
 
-        conf = model.extract(tensor)
+        conf = model.forward_pretrain(tensor)
 
         loss = 0
         for i in range(batch_size):
