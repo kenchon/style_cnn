@@ -13,23 +13,23 @@ class Stylenet(nn.Module):
         self.conv2 = nn.Conv2d(64,64,(3, 3),(1, 1),(1, 1))
         self.conv2_drop = nn.Dropout(0.25)
         self.pool1 = nn.MaxPool2d((4, 4),(4, 4))
-        self.bn1 = nn.BatchNorm2d(64)
+        self.bn1 = nn.BatchNorm2d(64,0.001,0.9,True)
         self.conv3 = nn.Conv2d(64,128,(3, 3),(1, 1),(1, 1))
         self.conv4 = nn.Conv2d(128,128,(3, 3),(1, 1),(1, 1))
         self.conv4_drop = nn.Dropout(0.25)
         self.pool2 = nn.MaxPool2d((4, 4),(4, 4))
-        self.bn2 = nn.BatchNorm2d(128)
+        self.bn2 = nn.BatchNorm2d(128,0.001,0.9,True)
         self.conv5 = nn.Conv2d(128,256,(3, 3),(1, 1),(1, 1))
         self.conv6 = nn.Conv2d(256,256,(3, 3),(1, 1),(1, 1))
         self.conv6_drop = nn.Dropout(0.25)
         self.pool3 =nn.MaxPool2d((4, 4),(4, 4))
-        self.bn3 = nn.BatchNorm2d(256)
+        self.bn3 = nn.BatchNorm2d(256,0.001,0.9,True)
         self.conv7 = nn.Conv2d(256,128,(3, 3),(1, 1),(1, 1))
         self.linear1 = nn.Linear(3072,128)
-        self.bn4 = nn.BatchNorm1d(128)
+        self.bn4 = nn.BatchNorm1d(128,0.001,0.9,True)
         self.linear2 = nn.Linear(128, 128)
-        self.linear3 = nn.Linear(128, N_tags)
-        self.logsoftmax = nn.LogSoftmax()
+        self.linear3 = nn.Linear(128, N_tags*2)
+        #self.logsoftmax = nn.LogSoftmax()
         #self.sigmoid = nn.Sigmoid()
 
         """
@@ -97,13 +97,11 @@ class Stylenet(nn.Module):
         x = F.relu(self.conv7(x))
         x = x.view(-1,3072)
         x = self.linear1(x)
-        x = self.bn4(x)
-        x = F.relu(x)
         x = self.linear2(x)
         #x = self.logsoftmax(x)
         return x
 
-    def forward_softmax(self, input):
+    def forward_pretrain(self, input):
         x = F.relu(self.conv1(input))
         x = F.relu(self.conv2(x))
         x = self.conv2_drop(x)
@@ -119,8 +117,9 @@ class Stylenet(nn.Module):
         x = F.relu(self.conv7(x))
         x = x.view(-1,3072)
         x_128 = self.linear1(x)
-        x = self.linear2(x_128)
-        x = self.logsoftmax(x)
+        x = self.bn4(x_128)
+        x = self.linear2(x)
+        x = self.linear3(x)
         return x
 
 class LambdaBase(nn.Sequential):
@@ -161,7 +160,8 @@ def get_model(params_path = "stylenet.pth"):
     	nn.Dropout(0.25),
     	nn.MaxPool2d((4, 4),(4, 4)),
     	nn.BatchNorm2d(256,0.001,0.9,True),
-    	nn.Conv2d(256,128,(3, 3),(1, 1),(1, 1)),
+    	nn.Conv2d(256,128,(1, 1)),
+        nn.ReLU(),
     	Lambda(lambda x: x.view(x.size(0),-1)), # Reshape,
     	nn.Sequential(Lambda(lambda x: x.view(1,-1) if 1==len(x.size()) else x ),nn.Linear(3072,128)) # Linear,
         #nn.Linear(128, 40)
