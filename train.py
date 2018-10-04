@@ -36,7 +36,7 @@ def weights_init(m):
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
-def triplet_loss(feat, sim, use_proposed = True):
+def triplet_loss(feat, sim, use_proposed = False):
     alpha = 0.01
 
     dist_pos = torch.norm(feat[0] - feat[1], 2)
@@ -46,7 +46,7 @@ def triplet_loss(feat, sim, use_proposed = True):
     reg_dist_neg = exp(dist_neg)/(exp(dist_pos) + exp(dist_neg))
 
     if(use_proposed):
-        loss_t = (((1 - sim[0])*alpha - reg_dist_pos)**2)
+        loss_t = (((1 - sim[0])*alpha - reg_dist_pos)**2 + (0 - reg_dist_neg)**2)/2
         return loss_t
     else:
         return (reg_dist_pos)**2
@@ -109,16 +109,24 @@ def insert_trained_weight(model, path_to_weight = "linear_weight.pth"):
 
     return model
 
-def save_loss(loss_prog, add = ""):
-    #with open('loss_progress.txt', mode = 'a') as f_loss:
-    #    f_loss.write('\n'.join(loss_prog))
-    f_loss = open('loss_progress'+add+'.txt', mode = 'a')
+def save_loss(loss_prog, temp_score, add = ""):
+    f_loss = open('loss_progress.txt', mode = 'a')
     for i in loss_prog:
         f_loss.write(str(i)+'\n')
     f_loss.close()
 
-def send_prog_image(add = "", split = 100):
-    with open('loss_progress'+add+'.txt','r') as f:
+    f_acc = open('acc_progress.txt', mode = 'a')
+    f_acc.write(str(temp_score)+'\n')
+    f_acc.close()
+
+def get_loss_acc_fig(loss_prog, temp_score):
+    save_loss(loss_prog, temp_score)
+    path_to_fig = get_prog_image()
+    return path_to_fig
+
+
+def get_prog_image(add = "", split = 100):
+    with open('loss_progress.txt','r') as f:
         lines = f.readlines()
 
     num_split = split
@@ -132,14 +140,34 @@ def send_prog_image(add = "", split = 100):
             mean.append(sum_e/num_split)
             sum_e = 0
 
-    plt.plot(mean)
+    with open('acc_progress.txt','r') as f:
+        lines = f.readlines()
+
+    acc_list = []
+    for line in lines:
+        acc_list.append(float(line.strip()))
+
+    X = [i for i in range(int(len(mean)/split)+1)]
+    X = np.array(X)*split
+
+    fig, (axU, axD) = plt.subplots(2, 1)
+
+    axU.plot(mean)
+    axU.grid(True)
+    axU.set_title('Loss Progress')
+
+    axD.plot(acc_list)
+    axD.grid(True)
+    axU.set_title('Acc. Progress')
+
     path_to_img = cur_path + 'loss_progress.png'
-    plt.savefig(path_to_img)
+    fig.savefig(path_to_img)
 
     return path_to_img
 
 def load_training_ids(batch_size, use_proposed):
     f_sim_path = "./triplet.csv" if(use_proposed) else "./triplet_pre.csv"
+    print(f_sim_path)
     f_sim      = open(f_sim_path,"r")
     reader_csv = csv.reader(f_sim)
 
@@ -163,38 +191,41 @@ if __name__ == "__main__":
     w = cs.weights
     use_proposed = True
     do_classification = True
+    do_retrain = False
 
     # load model
-    if do_classification:
+    if do_classification and not do_retrain:
         model = stylenet.Stylenet()
-        model.load_state_dict(torch.load('linear_weight_softmax_118000.pth'))
+        #model.load_state_dict(torch.load('./experience_result/linear_weight_softmax_118000.pth'))
+        model.load_state_dict(torch.load('linear_weight_softmax_notpro_37000.pth'))
         forward = model.forward_
-    else:
+    elif do_retrain and do_classification:
+        model = stylenet.get_model()
+        model = insert_trained_weight(model)
+        forward = model.forward_
+    elif do_retrain:
         model = load_model.model
         model.load_state_dict(torch.load('stylenet.pth'))
         forward = model.forward
 
+    do_classification = False
     model.cuda()
     model.train()
 
     # learning settings
-    learning_rate = 1e-4
-    epochs = 500
-    #optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, amsgrad = True)
+    learning_rate = 1e-2
+    epochs = 2000
+    optimizer = torch.optim.Adadelta(model.parameters(), lr=learning_rate)
     batch_size = 22
-    alpha_c = 1
-    split = 500
+    alpha_c = 0.01
+    split = 1000
 
     max_score = 0
     loss_progress = []
 
-    #model.load_state_dict(torch.load('./result/params/prams_lr001_clas=True_epoch0_iter10000_5.pth'))
-    #optimizer.load_state_dict(torch.load('./result/params/optim_lr001_clas=True_epoch0_iter10000_5.pth'))
-
     for epoch in range(epochs):
 
-        row, batchs = load_training_ids(batch_size, use_proposed)
+        row, batchs = load_training_ids(batch_size, use_proposed = True)
         print(len(batchs))
 
         for o, batch in enumerate(batchs):
@@ -202,22 +233,18 @@ if __name__ == "__main__":
             model.train()
 
             if(o% split == 0 and o != 0):
-                save_loss(loss_progress)
-                loss_progress = []
-                path_to_fig = send_prog_image()
-                ln.send_image_(path_to_fig, 'loss progress')
-
-                model_path = "./result/params/prams_lr001_clas=True_epoch{}_iter{}_7.pth".format(epoch, o)
-                optim_path = "./result/params/optim_lr001_clas=True_epoch{}_iter{}_7.pth".format(epoch, o)
+                model_path = "./result/params/prams_lr001_clas=False_pre_epoch{}_iter{}_11.pth".format(epoch, o)
+                optim_path = "./result/params/optim_lr001_clas=False_pre_epoch{}_iter{}_11.pth".format(epoch, o)
                 torch.save(model.state_dict(), model_path)
                 torch.save(optimizer.state_dict(), optim_path)
 
-                temp_score = test.test(model_path, do_classification)
-                ln.notify("{} {}".format(str(temp_score), model_path))
+                temp_score = test.test(model_path, do_classification, model)
 
-                print("{} {}".format(temp_score, max_score))
+                path_to_fig = get_loss_acc_fig(loss_progress, temp_score)
+                ln.send_image_(path_to_fig, 'loss progress')
+                ln.notify('{} {}'.format(str(temp_score), model_path))
 
-
+                loss_progress = []
 
             # img, sim are list: i th column holds i th triplet
             img, sim, target, target_npy = triplet_sampling(row, batch)
@@ -226,22 +253,17 @@ if __name__ == "__main__":
             feat = []
             pred = []
             for j in range(3):
-                if do_classification:
-                    f, p = forward(Variable(img[j]).cuda())
-                    if(j == 2):
-                        pred.append(p)
-                else:
-                    f = forward(Variable(img[j]).cuda())
+                f,p = forward(Variable(img[j]).cuda())
+                if(do_classification and j == 2):
+                    pred.append(p)
+
                 feat.append(f)
 
             # LOSS COMPUTING
             for i in range(batch_size):
-                # loss += triplet_cross_entropy_loss([feat[0][i],feat[1][i],feat[2][i]], (sim[0][i],sim[1][i]), use_proposed)
                 loss += triplet_loss([feat[0][i],feat[1][i],feat[2][i]], (sim[0][i],sim[1][i]), use_proposed)
                 if(do_classification):
                     loss += alpha_c * binary_classfi_loss(pred[0][i], target_npy[i], use_proposed)
-
-                #batch_count += 1
 
             loss = loss/batch_size
             print("{} {:.4f}".format(o, loss.cpu().detach().numpy()))
