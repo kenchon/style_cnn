@@ -27,14 +27,13 @@ def gaussian_KL(p,q):
     mq, cq = q
     D = mp.shape[0]
 
-    cp_inv = np.linalg.inv(cp)
-    cq_det = np.linalg.det(cq)
-    cp_det = np.linalg.det(cp)
-
-    kl = 0.5 * (np.trace(np.dot(np.dot(mp-mq, (mp-mq).T) + cq, cp_inv)) + math.log(cp_det/cq_det) - D)
-
-    return kl
-
+    if D>1:
+        cp_inv = np.linalg.inv(cp)
+        cq_det = np.linalg.det(cq)
+        cp_det = np.linalg.det(cp)
+        kl = 0.5 * (np.trace(np.dot(np.dot(mp-mq, (mp-mq).T) + cq, cp_inv)) + math.log(cp_det/cq_det) - D)
+        return kl
+        
 def io_test():
     # i/o test
     p = [np.array([1, 1]),np.array([[1, 0],[0, 0.5]])]
@@ -203,7 +202,10 @@ def io_test2():
         print("{}:{}".format(t, compute_entropy(c)))
 
 if __name__ == "__main__":
-
+    p = (np.array([0]),np.array([1]))
+    q = (np.array([0]),np.array([0.5]))
+    print(gaussian_KL(p, q))
+    """
     p = compute_image_dist()
     print(p)
 
@@ -213,3 +215,4 @@ if __name__ == "__main__":
         #num = sampler.number_of_image(i)
         #detc = round(math.log10(np.linalg.det(c)),2)
         print("{}:\t{}".format(tag_dict[i], gaussian_KL(p, q)))
+    """
