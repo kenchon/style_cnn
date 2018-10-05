@@ -155,20 +155,21 @@ class LinearUnit(nn.Module):
         return x
 
 if __name__ == '__main__':
-    epochs = 1000000
+    epochs = 10000000
     split = 2000
     loss_progress = []
 
-    stopped = 0
+    stopped = 6000
 
     model = stylenet.Stylenet()
-    #model.load_state_dict(torch.load('linear_weight_softmax_pro_{}.pth'.format(stopped)))
+    model.load_state_dict(torch.load('./linear_weight_softmax_pro_{}.pth'.format(stopped)))
     model.cuda()
     model.train()
 
-    learning_rate = 1e-4
-    #optimizer = torch.optim.Adadelta(model.parameters(), weight_decay = 5e-4)
+    learning_rate = 1e-5
     optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
+    #optimizer = torch.optim.Adadelta(model.parameters(), weight_decay = 5e-4)
+
 
     for epoch in range(stopped, epochs):
         if (epoch%split == 0 and epoch != stopped):
@@ -177,20 +178,14 @@ if __name__ == '__main__':
             torch.save(model.state_dict(), model_path)
             torch.save(optimizer.state_dict(), 'optim_softmax.pth')
 
-            temp_score = test.test(model_path, do_classification = True, model = model)
-            #temp_score = 0.588
+            temp_score = test.test(model_path, do_classification = True)
             path_to_fig = get_loss_acc_fig(loss_progress, temp_score)
             ln.send_image_(path_to_fig, 'loss progress')
             ln.notify('{} {}'.format(str(temp_score), model_path))
-
-            #dic = get_setting()
-            #optimizer = torch.optim.Adam(model.parameters(), lr = dic['lr'], weight_decay = 5e-4)
-            #optimizer.load_state_dict(torch.load('optim_softmax.pth'))
-
-            learning_rate *= 0.65
-            optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
             loss_progress = []
-            #if(loss_progress[])
+
+            learning_rate *= 0.5
+            optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
 
         # image sampling
         tensor = torch.Tensor(batch_size, 3, 384, 256).cuda()
