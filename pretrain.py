@@ -23,7 +23,7 @@ N_tags = 66
 il_list = cs.il_list        # ilegal photo ids
 SIZE = cs.SIZE
 w = cs.weights
-label_array = np.load("./noisy.npy")     # load numpy based labels
+label_array = np.load("./noisy_ver.npy")     # load numpy based labels
 use_proposed = False
 batch_size = 50
 sum_w = cs.sum_w
@@ -35,6 +35,7 @@ def classfi_loss(conf, target, use_proposed = True):
         for t in range(N_tags):
             y_k = (target[t] - 0.5) * 2
             loss_c += w[t]*torch.log(1 + torch.exp(-int(y_k) * conf[t]))    # cross entropy
+
         return loss_c/sum_w
 
     else:
@@ -47,18 +48,19 @@ def classfi_loss_with_binary_output(conf, target, use_proposed = True):
     """
     E.Simo-Serra+,CVPR2016 eq.(7) for details
     """
-    loss_c = 0
+    loss_c = 0.0
     if(use_proposed):
         for t in range(N_tags):
-            x0 = t*2
-            x1 = t*2 + 1
-            loss_c += w[t]*(-target[t] + log( exp(x0) + exp(x1)))
+            i0 = t*2
+            i1 = t*2 + 1
+            loss_c += w[t]*(-int(target[t]) + torch.log( torch.exp(conf[i0]) + torch.exp(conf[i1])))
+
         return loss_c/sum_w
     else:
         for t in range(N_tags):
             x0 = t*2
             x1 = t*2 + 1
-            loss_c += (-target[t] + log( exp(x0) + exp(x1)))
+            loss_c += (-target[t] + torch.log( torch.exp(conf[x0]) + torch.exp(conf[x1])))
         return loss_c/N_tags
 
 def classfi_loss_softmax(conf, target, use_proposed = True):
@@ -92,7 +94,6 @@ def get_loss_acc_fig(loss_prog, temp_score):
     save_loss(loss_prog, temp_score)
     path_to_fig = get_prog_image()
     return path_to_fig
-
 
 def get_prog_image(add = "", split = 100):
     with open('loss_progress_pretrain.txt','r') as f:
@@ -156,25 +157,26 @@ class LinearUnit(nn.Module):
 
 if __name__ == '__main__':
     epochs = 10000000
-    split = 2000
+    split = 1000
     loss_progress = []
 
-    stopped = 6000
+    stopped = 96000
 
     model = stylenet.Stylenet()
     model.load_state_dict(torch.load('./linear_weight_softmax_pro_{}.pth'.format(stopped)))
+    #model.load_state_dict(torch.load('./experience_result/linear_weight_softmax_118000.pth'))
     model.cuda()
     model.train()
 
-    learning_rate = 1e-5
-    optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
+    learning_rate = 1e-4
+    optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
     #optimizer = torch.optim.Adadelta(model.parameters(), weight_decay = 5e-4)
 
 
     for epoch in range(stopped, epochs):
         if (epoch%split == 0 and epoch != stopped):
 
-            model_path = 'linear_weight_softmax_pro_{}.pth'.format(epoch)
+            model_path = 'linear_weight_softmax_pro_ver_{}.pth'.format(epoch)
             torch.save(model.state_dict(), model_path)
             torch.save(optimizer.state_dict(), 'optim_softmax.pth')
 
@@ -183,9 +185,6 @@ if __name__ == '__main__':
             ln.send_image_(path_to_fig, 'loss progress')
             ln.notify('{} {}'.format(str(temp_score), model_path))
             loss_progress = []
-
-            learning_rate *= 0.5
-            optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate, weight_decay = 5e-4)
 
         # image sampling
         tensor = torch.Tensor(batch_size, 3, 384, 256).cuda()
@@ -201,11 +200,11 @@ if __name__ == '__main__':
                 target[count] = label_array[id]
                 count += 1
 
-        conf = model.forward_pretrain(tensor)
+        conf = model.extract(tensor)
 
-        loss = 0
+        loss = 0.0
         for i in range(batch_size):
-            loss += classfi_loss(conf[i], target[i], use_proposed)
+            loss += classfi_loss(conf[i], target[i], use_proposed=True)
 
         loss /= batch_size
         loss.backward()
