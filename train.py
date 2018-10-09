@@ -152,13 +152,14 @@ def get_prog_image(add = "", split = 100):
 
     fig, (axU, axD) = plt.subplots(2, 1)
 
-    axU.plot(mean)
+    c = 'blue'
+    axU.plot(mean, color = c)
     axU.grid(True)
     axU.set_title('Loss Progress')
 
-    axD.plot(acc_list)
+    axD.plot(acc_list, color = c)
     axD.grid(True)
-    axU.set_title('Acc. Progress')
+    axD.set_title('Acc. Progress')
 
     path_to_img = cur_path + 'loss_progress.png'
     fig.savefig(path_to_img)
