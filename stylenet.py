@@ -26,20 +26,9 @@ class Stylenet(nn.Module):
         self.bn3 = nn.BatchNorm2d(256,0.001,0.9,True)
         self.conv7 = nn.Conv2d(256,128,(3, 3),(1, 1),(1, 1))
         self.linear1 = nn.Linear(3072,128)
-        self.bn4 = nn.BatchNorm1d(128,0.001,0.9,True)
-        self.linear2 = nn.Linear(128, 128)
-        self.linear3 = nn.Linear(128, N_tags*2)
+        self.linear2 = nn.Linear(128, N_tags)
         #self.logsoftmax = nn.LogSoftmax()
         #self.sigmoid = nn.Sigmoid()
-
-        """
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-        """
 
     def forward(self, input):
         x = F.relu(self.conv1(input))
@@ -118,6 +107,7 @@ class Stylenet(nn.Module):
         x = x.view(-1,3072)
         x_128 = self.linear1(x)
         x = self.bn4(x_128)
+        x = F.relu(x)
         x = self.linear2(x)
         x = self.linear3(x)
         return x
