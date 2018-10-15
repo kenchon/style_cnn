@@ -37,7 +37,7 @@ def weights_init(m):
         m.bias.data.fill_(0)
 
 def triplet_loss(feat, sim, use_proposed = False):
-    alpha = 0.01
+    alpha = 0.1
 
     dist_pos = torch.norm(feat[0] - feat[1], 2)
     dist_neg = torch.norm(feat[0] - feat[2], 2)
@@ -46,7 +46,7 @@ def triplet_loss(feat, sim, use_proposed = False):
     reg_dist_neg = exp(dist_neg)/(exp(dist_pos) + exp(dist_neg))
 
     if(use_proposed):
-        loss_t = (((1 - sim[0])*alpha - reg_dist_pos)**2 + (0 - reg_dist_neg)**2)/2
+        loss_t = (((1 - sim[0])*alpha - reg_dist_pos)**2 + (1 - reg_dist_neg)**2)/2
         return loss_t
     else:
         return (reg_dist_pos)**2
@@ -97,14 +97,13 @@ def binary_classfi_loss(conf, target_npy, use_proposed = True):
             loss_c += torch.log(1 + torch.exp(-int(y_k) * conf[t]))    # cross entropy
         return loss_c/N_tags
 
-def insert_trained_weight(model, path_to_weight = "linear_weight.pth"):
+def init_linear_weight(model):
 
-    weight_dict = torch.load(path_to_weight)
-    layers = ['linear2.weight', 'linear2.bias']
+    layers = ['linear2.weight']
     state_dict = model.state_dict()
 
     for layer in layers:
-        state_dict[layer] = weight_dict[layer]
+        torch.nn.init.xavier_uniform(state_dict[layer])
     model.load_state_dict(state_dict)
 
     return model
@@ -167,7 +166,7 @@ def get_prog_image(add = "", split = 100):
     return path_to_img
 
 def load_training_ids(batch_size, use_proposed):
-    f_sim_path = "./triplet.csv" if(use_proposed) else "./triplet_pre.csv"
+    f_sim_path = "./triplet.csv" if(use_proposed) else "./triplet_pre_ver.csv"
     print(f_sim_path)
     f_sim      = open(f_sim_path,"r")
     reader_csv = csv.reader(f_sim)
@@ -192,41 +191,45 @@ if __name__ == "__main__":
     w = cs.weights
     use_proposed = True
     do_classification = True
-    do_retrain = False
+    do_retrain = True
 
     # load model
     if do_classification and not do_retrain:
         model = stylenet.Stylenet()
         #model.load_state_dict(torch.load('./experience_result/linear_weight_softmax_118000.pth'))
-        model.load_state_dict(torch.load('linear_weight_softmax_notpro_37000.pth'))
+        model.load_state_dict(torch.load('linear_weight_softmax_pro_ver_248000.pth'))
         forward = model.forward_
     elif do_retrain and do_classification:
-        model = stylenet.get_model()
-        model = insert_trained_weight(model)
+        print("It works!")
+        model = stylenet.Stylenet()
+        model.load_state_dict(torch.load('linear_weight_softmax_pro_ver_248000.pth'))
+        model = init_linear_weight(model)
         forward = model.forward_
     elif do_retrain:
-        model = load_model.model
-        model.load_state_dict(torch.load('stylenet.pth'))
+        #model = load_model.model
+        model = stylenet.Stylenet()
+        #model.load_state_dict(torch.load('stylenet.pth'))
+        model.load_state_dict(torch.load('linear_weight_softmax_pro_ver_248000.pth'))
+        #print(load)
         forward = model.forward
 
-    do_classification = False
     model.cuda()
     model.train()
 
     # learning settings
     learning_rate = 1e-2
     epochs = 2000
-    optimizer = torch.optim.Adadelta(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     batch_size = 22
     alpha_c = 0.01
-    split = 1000
+    split = 500
 
     max_score = 0
     loss_progress = []
 
     for epoch in range(epochs):
 
-        row, batchs = load_training_ids(batch_size, use_proposed = True)
+        row, batchs = load_training_ids(batch_size, use_proposed = False)
         print(len(batchs))
 
         for o, batch in enumerate(batchs):
@@ -264,7 +267,7 @@ if __name__ == "__main__":
             for i in range(batch_size):
                 loss += triplet_loss([feat[0][i],feat[1][i],feat[2][i]], (sim[0][i],sim[1][i]), use_proposed)
                 if(do_classification):
-                    loss += alpha_c * binary_classfi_loss(pred[0][i], target_npy[i], use_proposed)
+                    loss += alpha_c * binary_classfi_loss(pred[0][i], target_npy[i], use_proposed=True)
 
             loss = loss/batch_size
             print("{} {:.4f}".format(o, loss.cpu().detach().numpy()))
