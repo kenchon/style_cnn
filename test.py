@@ -35,7 +35,7 @@ import pandas as pd
 import scipy.stats as sp
 import mymodules.line_notify as ln
 
-def test(path_to_weight,do_classification, model,use_standard_output = True, seek_best = True):
+def test(path_to_weight,do_classification,use_standard_output = True, seek_best = True):
     """
     load hipster wars dataset
     """
@@ -85,7 +85,9 @@ def test(path_to_weight,do_classification, model,use_standard_output = True, see
     model.load_state_dict(torch.load(path_to_weight))
     model = model.cuda()
     """
-    model = model
+    model = stylenet.Stylenet()
+    model.cuda()
+    model.load_state_dict(torch.load(path_to_weight))
     model.eval()
 
     """
@@ -132,7 +134,7 @@ def test(path_to_weight,do_classification, model,use_standard_output = True, see
     clf.fit(X, Y)
     pre = clf.predict(X)
 
-    N = 10
+    N = 1
     scoresN = list(range(N))
 
     for i in range(N):
@@ -145,7 +147,6 @@ def test(path_to_weight,do_classification, model,use_standard_output = True, see
     # message = "{} {} {}".format(max(scoresN),clf, path_to_weight)
     if use_standard_output: print("max:{} mean{}".format(max(scoresN), np.mean(scoresN)))
     # ln.notify(message)
-
 
     return np.mean(scoresN)
 
@@ -245,81 +246,81 @@ def matrix(path_to_weight,do_classification, use_standard_output = True, seek_be
     clf.fit(X, Y)
     pre = clf.predict(X)
 
-    N = 1
-    scoresN = []
-    trline = []
-    preline = []
+    for i in range(100):
+        scoresN = []
+        trline = []
+        preline = []
 
-    i = 84
-    rs=ShuffleSplit(n_splits=100, train_size=0.8,random_state=i)
-    matrix = [[0]*5]*5
-    for tr,ts in rs.split(X):
-        clf.fit(X[tr],Y[tr])
-        pre = clf.predict(X[ts])
-        matrix += confusion_matrix(Y[ts], pre)
-        trline.extend(Y[ts.tolist()])
-        preline.extend(pre.tolist())
-    print(matrix)
-    print(classification_report(trline, preline,target_names = styles))
+        i = 0
+        rs=ShuffleSplit(n_splits=100, train_size=0.8,random_state=i)
+        matrix = [[0]*5]*5
+        for tr,ts in rs.split(X):
+            clf.fit(X[tr],Y[tr])
+            pre = clf.predict(X[ts])
+            matrix += confusion_matrix(Y[ts], pre)
+            trline.extend(Y[ts.tolist()])
+            preline.extend(pre.tolist())
+        print(matrix)
+        print(classification_report(trline, preline,target_names = styles))
 
-    """
-    Acc, Recall, Precision computation
-    """
-    score = matrix
-    sum = 0
-    rig = 0
+        """
+        Acc, Recall, Precision computation
+        """
+        score = matrix
+        sum = 0
+        rig = 0
 
-    acc_list = []
-    pre_list = []
-    rec_list = []
+        acc_list = []
+        pre_list = []
+        rec_list = []
 
-    for r in score:
-        for e in r:
-            sum += e
-    count = 0
-    now = 0
-    for i in score:
-        now =0
-        for j in i:
-            if now == count:
-                rig += j
-            now += 1
-        count += 1
-
-    print("Acc.\t", rig/sum)
-
-    count = 0
-    for r in score:
-        sum_acc = 0
-
+        for r in score:
+            for e in r:
+                sum += e
+        count = 0
         now = 0
-        for e in r:
-            sum_acc += e
-        for e in r:
-            if count == now:
-                acc_list.append(e/sum_acc)
-            now += 1
-        count += 1
-    print("Rec.\t", np.mean(acc_list))
+        for i in score:
+            now =0
+            for j in i:
+                if now == count:
+                    rig += j
+                now += 1
+            count += 1
 
-    score = list(np.array(score).T)
+        print("Acc.\t", rig/sum)
+
+        count = 0
+        for r in score:
+            sum_acc = 0
+
+            now = 0
+            for e in r:
+                sum_acc += e
+            for e in r:
+                if count == now:
+                    acc_list.append(e/sum_acc)
+                now += 1
+            count += 1
+        print("Rec.\t", np.mean(acc_list))
+
+        score = list(np.array(score).T)
 
 
-    pre_list = []
+        pre_list = []
 
-    count = 0
-    for r in score:
-        sum_pre = 0
+        count = 0
+        for r in score:
+            sum_pre = 0
 
-        now = 0
-        for e in r:
-            sum_pre += e
-        for e in r:
-            if count == now:
-                pre_list.append(e/sum_pre)
-            now += 1
-        count += 1
-    print("Pre.\t", np.mean(pre_list))
+            now = 0
+            for e in r:
+                sum_pre += e
+            for e in r:
+                if count == now:
+                    pre_list.append(e/sum_pre)
+                now += 1
+            count += 1
+        print("Pre.\t", np.mean(pre_list))
 
 
     # message = "{} {} {}".format(max(scoresN),clf, path_to_weight)
@@ -457,7 +458,12 @@ def test2(parameter):
     return str(max(scoresN))
 
 if __name__ == "__main__":
+    stopped = 162000
+    path = './linear_weight_softmax_pro_ver_{}_.pth'.format(stopped)
     #test("./result/params/prams_lr001_clas=True_epoch0_iter100_5.pth")
     #matrix('./result/params/prams_lr001_clas=True_epoch0_iter4000_7.pth', use_standard_output = True, do_classification = False)
-    test("./result/params/prams_lr001_clas=False_pre_epoch0_iter12000.pth", use_standard_output = True, do_classification = False)
+    #test("./result/params/prams_lr001_clas=False_pre_epoch0_iter12000.pth", use_standard_output = True, do_classification = False)
     #test('linear_weight_softmax.pth', do_classification = False)
+    #test('linear_weight_softmax_pro_1000.pth', do_classification = True, model = stylenet.Stylenet().cuda())
+    #test('./linear_weight_softmax_pro_ver_248000.pth', do_classification = True)
+    matrix(path, do_classification = True)
