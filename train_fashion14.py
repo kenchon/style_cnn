@@ -8,6 +8,9 @@ from skimage import io, transform
 import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
+import torch.optim as optim
+import torch.nn as nn
+import torch.nn.functional as F
 from torchvision import transforms, utils
 import re
 from PIL import Image
@@ -20,11 +23,57 @@ dir = '/home/hondoh/source/FashionStyle14_v1/'
 labels = ["conservative","dressy","ethnic","fairy","feminine","gal","girlish",
             "kireime-casual","lolita", "mode","natural","retro","rock","street"]
 
+N_labels = len(labels)
+
+class Stylenet(nn.Module):
+    def __init__(self):
+        super(Stylenet, self).__init__()
+        self.relu = nn.ReLU
+        self.conv1 = nn.Conv2d(3,64,(3, 3),(1, 1),(1, 1))
+        self.conv2 = nn.Conv2d(64,64,(3, 3),(1, 1),(1, 1))
+        self.conv2_drop = nn.Dropout(0.25)
+        self.pool1 = nn.MaxPool2d((4, 4),(4, 4))
+        self.bn1 = nn.BatchNorm2d(64,0.001,0.9,True)
+        self.conv3 = nn.Conv2d(64,128,(3, 3),(1, 1),(1, 1))
+        self.conv4 = nn.Conv2d(128,128,(3, 3),(1, 1),(1, 1))
+        self.conv4_drop = nn.Dropout(0.25)
+        self.pool2 = nn.MaxPool2d((4, 4),(4, 4))
+        self.bn2 = nn.BatchNorm2d(128,0.001,0.9,True)
+        self.conv5 = nn.Conv2d(128,256,(3, 3),(1, 1),(1, 1))
+        self.conv6 = nn.Conv2d(256,256,(3, 3),(1, 1),(1, 1))
+        self.conv6_drop = nn.Dropout(0.25)
+        self.pool3 =nn.MaxPool2d((4, 4),(4, 4))
+        self.bn3 = nn.BatchNorm2d(256,0.001,0.9,True)
+        self.conv7 = nn.Conv2d(256,128,(3, 3),(1, 1),(1, 1))
+        self.linear1 = nn.Linear(3072,128)
+        self.linear2 = nn.Linear(128, N_labels)
+        self.logsoftmax = nn.LogSoftmax()
+
+    def forward(self, input):
+        x = F.relu(self.conv1(input))
+        x = F.relu(self.conv2(x))
+        x = self.conv2_drop(x)
+        x = self.bn1(self.pool1(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
+        x = self.conv4_drop(x)
+        x = self.bn2(self.pool2(x))
+        x = F.relu(self.conv5(x))
+        x = F.relu(self.conv6(x))
+        x = self.conv6_drop(x)
+        x = self.bn3(self.pool3(x))
+        x = F.relu(self.conv7(x))
+        x = x.view(-1,3072)
+        x = self.linear1(x)
+        x = self.linear2(x)
+        x = self.logsoftmax(x)
+        return  x
+
 class FashionStyle14Dataset(Dataset):
     """FashionStyle14 dataset."""
 
     def __init__(self, csv_file, root_dir, transform=None):
-        self.img_paths = pd.read_csv(csv_file, sep = '\n')
+        self.img_paths = pd.read_csv(csv_file, sep = ',')
         self.root_dir = root_dir
         self.transform = transform
 
@@ -102,16 +151,39 @@ def main():
     print(test_set.__len__())
     print(val_set.__len__())
 
+    # Loading Model
+    model = Stylenet()
+    model.train(True)
+    model.cuda()
+
     # Training Settings
     epochs = 1
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     for epoch in range(epochs):
 
         running_loss = 0.0
         for i, data in enumerate(train_loader):
+            input = data['image'].cuda()
+            label = data['label'].cuda()
+            # zero the parameter gradients
+            optimizer.zero_grad()
 
-            #input_batch, label_batch = data
-            print(data['image'].shape)
+            # forward + backward + optimize
+            output = model(input)
+            loss = criterion(output, label)
+            loss.backward()
+            optimizer.step()
+
+            # print statistics
+            running_loss += loss.item()
+            print('[%d, %5d] loss: %.3f' %
+                (epoch + 1, i + 1, loss))
+            if i % 2000 == 1999:    # print every 2000 mini-batches
+                print('[%d, %5d] loss: %.3f' %
+                      (epoch + 1, i + 1, running_loss / 2000))
+                running_loss = 0.0
 
 if __name__ == "__main__":
-    compute_mean_std()
+    main()
