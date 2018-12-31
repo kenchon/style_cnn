@@ -15,6 +15,9 @@ from torchvision import transforms, utils
 import re
 from PIL import Image
 
+import argparse
+import pprint
+
 # Ignore warnings
 import warnings
 warnings.filterwarnings("ignore")
@@ -22,8 +25,31 @@ warnings.filterwarnings("ignore")
 dir = '/home/hondoh/source/FashionStyle14_v1/'
 labels = ["conservative","dressy","ethnic","fairy","feminine","gal","girlish",
             "kireime-casual","lolita", "mode","natural","retro","rock","street"]
-
+transform = transforms.Compose(
+    [#transforms.ToPILImage(),
+     transforms.Resize((384, 256)),
+     transforms.ToTensor(),
+     transforms.Normalize((0.6408, 0.6052, 0.5831), (0.2363, 0.2406, 0.2397))])
 N_labels = len(labels)
+
+def parse_args():
+    """
+    Parse input arguments
+    """
+    parser = argparse.ArgumentParser(description = 'Train StyleNet on FashionStyle14')
+    parser.add_argument('--lr', dest='lr',
+                        default=1e-3, type=float)
+    parser.add_argument('--epochs', dest='epochs',
+                        default=10, type=int)
+    parser.add_argument('--bs', dest='batch_size',
+                        default=32, type=int)
+    parser.add_argument('--lr_decay_gamma', dest='lr_decay_gamma',
+                        default=0.5, type=float)
+    parser.add_argument('--use_finetuned', dest='use_finetuned',
+                        default=False, type=bool)
+
+    args = parser.parse_args()
+    return args
 
 class Stylenet(nn.Module):
     def __init__(self):
@@ -69,6 +95,9 @@ class Stylenet(nn.Module):
         x = self.logsoftmax(x)
         return  x
 
+    def load_params(params_path):
+        weight_dict = torch.load(weight_path)
+
 class FashionStyle14Dataset(Dataset):
     """FashionStyle14 dataset."""
 
@@ -105,6 +134,16 @@ class FashionStyle14Dataset(Dataset):
         sample = {'image':image, 'label':label}
         return sample
 
+def load_weight(model, weight_path):
+    weight = torch.load(weight_path)
+    state_dict =  model.state_dict()
+    for key in state_dict:
+        if "linear2" not in key:
+            state_dict[key] = weight[key]
+            print("load weight: key = " + key)
+    model.load_state_dict(state_dict)
+    return model
+
 def compute_mean_std():
     transform = transforms.Compose(
         [#transforms.ToPILImage(),
@@ -133,19 +172,64 @@ def compute_mean_std():
 
     print(mean, std)
 
+def test(model):
+    model.cuda()
+
+    test_set = FashionStyle14Dataset(dir + "test.csv", dir, transform = transform)
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=32,shuffle=False)
+    class_correct = list(0. for i in range(N_labels))
+    class_total = list(0. for i in range(N_labels))
+
+    with torch.no_grad():
+        for data in test_loader:
+            input = data['image'].cuda()
+            label = data['label'].cuda()
+
+            outputs = model(input)
+            _, predicted = torch.max(outputs, 1)
+            c = (predicted == label).squeeze()
+            for i in range(len(label)):
+                l = label[i]
+                class_correct[l] += c[i].item()
+                class_total[l] += 1
+
+    sum_correct = 0
+    sum_total   = 0
+    for i in range(N_labels):
+        print('Accuracy of %5s : %.2f %%' % (
+            labels[i], 100 * class_correct[i] / class_total[i]))
+        sum_correct += class_correct[i]
+        sum_total   += class_total[i]
+    print("Average:\t %.2f %%" % (100 * sum_correct / sum_total))
+
+def get_valid_loss(model):
+    model.cuda()
+
+    val_set = FashionStyle14Dataset(dir + "valid.csv", dir, transform = transform)
+    val_loader = torch.utils.data.DataLoader(val_set, batch_size=32,shuffle=False)
+    criterion = nn.CrossEntropyLoss()
+    loss = 0.0
+
+    with torch.no_grad():
+        for data in val_loader:
+            input = data['image'].cuda()
+            label = data['label'].cuda()
+
+            outputs = model(input)
+            loss += criterion(outputs, label)
+
+    return loss/val_set.__len__()
+
 def main():
-    transform = transforms.Compose(
-        [#transforms.ToPILImage(),
-         transforms.Resize((384, 256)),
-         transforms.ToTensor(),
-         transforms.Normalize((0.6408, 0.6052, 0.5831), (0.2363, 0.2406, 0.2397))])
+    args = parse_args()
+    pprint.pprint(vars(args))
 
     # Loading dataset
     train_set = FashionStyle14Dataset(dir + "train.csv", dir, transform = transform)
     val_set = FashionStyle14Dataset(dir + "valid.csv", dir, transform = transform)
     test_set = FashionStyle14Dataset(dir + "test.csv", dir, transform = transform)
 
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=32,shuffle=False)
+    train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size,shuffle=True)
 
     print(train_set.__len__())
     print(test_set.__len__())
@@ -153,17 +237,33 @@ def main():
 
     # Loading Model
     model = Stylenet()
+    if args.use_finetuned:
+        model_path = "./linear_weight_softmax_pro_ver_162000_.pth"
+        model = load_weight(model, model_path)
+    else:
+        model_path = "./stylenet14_pretrain.pth"
+        model.load_state_dict(torch.load(model_path))
+
     model.train(True)
     model.cuda()
 
     # Training Settings
-    epochs = 1
+    epochs = args.epochs
+    lr = args.lr
+    lr_decay_gamma = args.lr_decay_gamma
+
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    model_save_path = "./stylenet14_pretrain.pth"
+
+    print("done")
+
+    last_valid_loss = 1e10
 
     for epoch in range(epochs):
-
+        optimizer = optim.Adam(model.parameters(), lr=lr)
         running_loss = 0.0
+        print("="*5 + "Epoch " + str(epoch + 1) + "="*5)
+
         for i, data in enumerate(train_loader):
             input = data['image'].cuda()
             label = data['label'].cuda()
@@ -178,12 +278,31 @@ def main():
 
             # print statistics
             running_loss += loss.item()
-            print('[%d, %5d] loss: %.3f' %
-                (epoch + 1, i + 1, loss))
-            if i % 2000 == 1999:    # print every 2000 mini-batches
-                print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 2000))
-                running_loss = 0.0
+            #print('[%d, %5d] loss: %.3f' %
+            #    (epoch + 1, i + 1, loss))
+
+        # learning rate decay criterion
+        valid_loss = get_valid_loss(model).item()
+        training_loss = running_loss/train_set.__len__()
+
+        print(f"valid loss: {valid_loss}")
+        print(f"training loss: {training_loss}")
+        if (0.98 < last_valid_loss/valid_loss < 1.02) :
+            lr = lr * lr_decay_gamma
+            print(f"Learning rate decay applied: lr = {lr}")
+        last_valid_loss = valid_loss
+
+        torch.save(model.state_dict(), model_save_path)
+
+        # training convergence criterion
+        if lr < 5e-8:
+            break
+
+    test(model)
 
 if __name__ == "__main__":
     main()
+    model = Stylenet()
+    model_path = "./stylenet14_pretrain.pth"
+    model.load_state_dict(torch.load(model_path))
+    test(model)
