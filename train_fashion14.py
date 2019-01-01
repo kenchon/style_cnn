@@ -47,6 +47,8 @@ def parse_args():
                         default=0.5, type=float)
     parser.add_argument('--use_finetuned', dest='use_finetuned',
                         default=False, type=bool)
+    parser.add_argument('--dropout_p', dest='dropout_p',
+                        default=0.5, type=float)
 
     args = parser.parse_args()
     return args
@@ -57,19 +59,19 @@ class Stylenet(nn.Module):
         self.relu = nn.ReLU
         self.conv1 = nn.Conv2d(3,64,(3, 3),(1, 1),(1, 1))
         self.conv2 = nn.Conv2d(64,64,(3, 3),(1, 1),(1, 1))
-        self.conv2_drop = nn.Dropout(0.25)
+        self.conv2_drop = nn.Dropout()
         self.pool1 = nn.MaxPool2d((4, 4),(4, 4))
-        self.bn1 = nn.BatchNorm2d(64,0.001,0.9,True)
+        self.bn1 = nn.BatchNorm2d(64)
         self.conv3 = nn.Conv2d(64,128,(3, 3),(1, 1),(1, 1))
         self.conv4 = nn.Conv2d(128,128,(3, 3),(1, 1),(1, 1))
-        self.conv4_drop = nn.Dropout(0.25)
+        self.conv4_drop = nn.Dropout()
         self.pool2 = nn.MaxPool2d((4, 4),(4, 4))
-        self.bn2 = nn.BatchNorm2d(128,0.001,0.9,True)
+        self.bn2 = nn.BatchNorm2d(128)
         self.conv5 = nn.Conv2d(128,256,(3, 3),(1, 1),(1, 1))
         self.conv6 = nn.Conv2d(256,256,(3, 3),(1, 1),(1, 1))
-        self.conv6_drop = nn.Dropout(0.25)
+        self.conv6_drop = nn.Dropout()
         self.pool3 =nn.MaxPool2d((4, 4),(4, 4))
-        self.bn3 = nn.BatchNorm2d(256,0.001,0.9,True)
+        self.bn3 = nn.BatchNorm2d(256)
         self.conv7 = nn.Conv2d(256,128,(3, 3),(1, 1),(1, 1))
         self.linear1 = nn.Linear(3072,128)
         self.linear2 = nn.Linear(128, N_labels)
@@ -174,6 +176,7 @@ def compute_mean_std():
 
 def test(model):
     model.cuda()
+    model.train(False)
 
     test_set = FashionStyle14Dataset(dir + "test.csv", dir, transform = transform)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=32,shuffle=False)
@@ -202,23 +205,31 @@ def test(model):
         sum_total   += class_total[i]
     print("Average:\t %.2f %%" % (100 * sum_correct / sum_total))
 
-def get_valid_loss(model):
-    model.cuda()
 
-    val_set = FashionStyle14Dataset(dir + "valid.csv", dir, transform = transform)
-    val_loader = torch.utils.data.DataLoader(val_set, batch_size=32,shuffle=False)
+
+def get_loss(model, phase):
+    """
+    Returns loss(float) for {train|valid|test} set.
+    Args:   model(nn.Module)...network to measure the loss
+            phase(str)...train, valid, test
+    """
+    model.cuda()
+    model.train(False)
+
+    data_set = FashionStyle14Dataset(dir + f"{phase}.csv", dir, transform = transform)
+    data_loader = torch.utils.data.DataLoader(data_set, batch_size=32,shuffle=False)
     criterion = nn.CrossEntropyLoss()
     loss = 0.0
 
     with torch.no_grad():
-        for data in val_loader:
+        for data in data_loader:
             input = data['image'].cuda()
             label = data['label'].cuda()
 
             outputs = model(input)
             loss += criterion(outputs, label)
 
-    return loss/val_set.__len__()
+    return loss/data_set.__len__()
 
 def main():
     args = parse_args()
@@ -253,11 +264,10 @@ def main():
     lr_decay_gamma = args.lr_decay_gamma
 
     criterion = nn.CrossEntropyLoss()
-    model_save_path = "./stylenet14_pretrain.pth"
-
-    print("done")
+    #model_save_path = "./stylenet14_pretrain.pth"
 
     last_valid_loss = 1e10
+    patience = 0
 
     for epoch in range(epochs):
         optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -282,16 +292,20 @@ def main():
             #    (epoch + 1, i + 1, loss))
 
         # learning rate decay criterion
-        valid_loss = get_valid_loss(model).item()
-        training_loss = running_loss/train_set.__len__()
+        valid_loss = get_loss(model, phase="valid").item()
+        test_loss = get_loss(model, phase="test").item()
+        train_loss = running_loss/train_set.__len__()
 
-        print(f"valid loss: {valid_loss}")
-        print(f"training loss: {training_loss}")
-        if (0.98 < last_valid_loss/valid_loss < 1.02) :
+        print(f"training loss: \t{train_loss:.4f}")
+        print(f"valid loss: \t{valid_loss:.4f}")
+        print(f"test loss: \t{test_loss:.4f}")
+
+        if (0.95 < last_valid_loss/valid_loss < 1.01):
             lr = lr * lr_decay_gamma
             print(f"Learning rate decay applied: lr = {lr}")
-        last_valid_loss = valid_loss
 
+        last_valid_loss = valid_loss
+        model_save_path = f"./stylenet14_pretrain_{epoch}.pth"
         torch.save(model.state_dict(), model_save_path)
 
         # training convergence criterion
