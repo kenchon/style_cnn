@@ -13,7 +13,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms, utils
 import re
+import mymodules.line_notify as ln
 from PIL import Image
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 import argparse
 import pprint
@@ -40,7 +44,7 @@ def parse_args():
     parser.add_argument('--lr', dest='lr',
                         default=1e-3, type=float)
     parser.add_argument('--epochs', dest='epochs',
-                        default=10, type=int)
+                        default=50, type=int)
     parser.add_argument('--bs', dest='batch_size',
                         default=32, type=int)
     parser.add_argument('--lr_decay_gamma', dest='lr_decay_gamma',
@@ -49,27 +53,35 @@ def parse_args():
                         default=False, type=bool)
     parser.add_argument('--dropout_p', dest='dropout_p',
                         default=0.5, type=float)
+    parser.add_argument('--weight_decay_lambda', dest='weight_decay_lambda',
+                        default=0, type=float)
+    parser.add_argument('--do_test', dest='do_test',
+                        default=False, type=bool)
+    parser.add_argument('--method', dest='method',
+                        default='ours', type=str)
+    parser.add_argument('--lr_decay_criterion', dest='lr_decay_criterion',
+                        default='validation_error', type=str)
 
     args = parser.parse_args()
     return args
 
 class Stylenet(nn.Module):
-    def __init__(self):
+    def __init__(self, dropout_p=0.5):
         super(Stylenet, self).__init__()
         self.relu = nn.ReLU
         self.conv1 = nn.Conv2d(3,64,(3, 3),(1, 1),(1, 1))
         self.conv2 = nn.Conv2d(64,64,(3, 3),(1, 1),(1, 1))
-        self.conv2_drop = nn.Dropout()
+        self.conv2_drop = nn.Dropout(p=dropout_p)
         self.pool1 = nn.MaxPool2d((4, 4),(4, 4))
         self.bn1 = nn.BatchNorm2d(64)
         self.conv3 = nn.Conv2d(64,128,(3, 3),(1, 1),(1, 1))
         self.conv4 = nn.Conv2d(128,128,(3, 3),(1, 1),(1, 1))
-        self.conv4_drop = nn.Dropout()
+        self.conv4_drop = nn.Dropout(p=dropout_p)
         self.pool2 = nn.MaxPool2d((4, 4),(4, 4))
         self.bn2 = nn.BatchNorm2d(128)
         self.conv5 = nn.Conv2d(128,256,(3, 3),(1, 1),(1, 1))
         self.conv6 = nn.Conv2d(256,256,(3, 3),(1, 1),(1, 1))
-        self.conv6_drop = nn.Dropout()
+        self.conv6_drop = nn.Dropout(p=dropout_p)
         self.pool3 =nn.MaxPool2d((4, 4),(4, 4))
         self.bn3 = nn.BatchNorm2d(256)
         self.conv7 = nn.Conv2d(256,128,(3, 3),(1, 1),(1, 1))
@@ -142,7 +154,7 @@ def load_weight(model, weight_path):
     for key in state_dict:
         if "linear2" not in key:
             state_dict[key] = weight[key]
-            print("load weight: key = " + key)
+            #print("load weight: key = " + key)
     model.load_state_dict(state_dict)
     return model
 
@@ -179,7 +191,7 @@ def test(model):
     model.train(False)
 
     test_set = FashionStyle14Dataset(dir + "test.csv", dir, transform = transform)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=32,shuffle=False)
+    test_loader = torch.utils.data.DataLoader(test_set, batch_size=32,shuffle=True)
     class_correct = list(0. for i in range(N_labels))
     class_total = list(0. for i in range(N_labels))
 
@@ -205,7 +217,34 @@ def test(model):
         sum_total   += class_total[i]
     print("Average:\t %.2f %%" % (100 * sum_correct / sum_total))
 
+def get_acc(model, phase):
+    model.cuda()
+    model.train(False)
 
+    data_set = FashionStyle14Dataset(dir + f"{phase}.csv", dir, transform = transform)
+    data_loader = torch.utils.data.DataLoader(data_set, batch_size=32,shuffle=True)
+    class_correct = list(0. for i in range(N_labels))
+    class_total = list(0. for i in range(N_labels))
+
+    with torch.no_grad():
+        for data in data_loader:
+            input = data['image'].cuda()
+            label = data['label'].cuda()
+
+            outputs = model(input)
+            _, predicted = torch.max(outputs, 1)
+            c = (predicted == label).squeeze()
+            for i in range(len(label)):
+                l = label[i]
+                class_correct[l] += c[i].item()
+                class_total[l] += 1
+    sum_correct = 0
+    sum_total   = 0
+    for i in range(N_labels):
+        sum_correct += class_correct[i]
+        sum_total   += class_total[i]
+    total_acc = 100 * sum_correct / sum_total
+    return total_acc
 
 def get_loss(model, phase):
     """
@@ -231,29 +270,30 @@ def get_loss(model, phase):
 
     return loss/data_set.__len__()
 
-def main():
-    args = parse_args()
-    pprint.pprint(vars(args))
+def train(args):
 
     # Loading dataset
     train_set = FashionStyle14Dataset(dir + "train.csv", dir, transform = transform)
     val_set = FashionStyle14Dataset(dir + "valid.csv", dir, transform = transform)
     test_set = FashionStyle14Dataset(dir + "test.csv", dir, transform = transform)
-
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=args.batch_size,shuffle=True)
 
-    print(train_set.__len__())
-    print(test_set.__len__())
-    print(val_set.__len__())
-
     # Loading Model
-    model = Stylenet()
+    model = Stylenet(args.dropout_p)
     if args.use_finetuned:
-        model_path = "./linear_weight_softmax_pro_ver_162000_.pth"
+        if args.method == 'ours':
+            model_path = "./linear_weight_softmax_pro_ver_77000_newweight.pth"
+            model_path = "./linear_weight_softmax_pro_ver_162000_.pth"
+            #model_path = "./linear_weight_softmax_datasetsize_11999_0.2.pth"
+            #model_path = "./result/params/prams_lr001_clas=False_pre_epoch0_iter55000_12.pth"
+            print(f"weight: {model_path}")
+        if args.method == 'imagenet':
+            model_path = "./imagenet_0.pth"
+            print("use imagenet-pretrained model")
+        else:
+            #model_path = "./result/params/prams_lr001_clas=False_pre_epoch0_iter13200_11.pth"
+            model_path = "KLtrue_63999_1.pth"
         model = load_weight(model, model_path)
-    else:
-        model_path = "./stylenet14_pretrain.pth"
-        model.load_state_dict(torch.load(model_path))
 
     model.train(True)
     model.cuda()
@@ -267,12 +307,15 @@ def main():
     #model_save_path = "./stylenet14_pretrain.pth"
 
     last_valid_loss = 1e10
+    last_valid_acc  = 0.0
     patience = 0
+    loss_dict = {"train":[], "valid":[], "test":[]}
+    valid_accs = []
 
     for epoch in range(epochs):
-        optimizer = optim.Adam(model.parameters(), lr=lr)
+        optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=args.weight_decay_lambda)
         running_loss = 0.0
-        print("="*5 + "Epoch " + str(epoch + 1) + "="*5)
+        print("="*10 + "Epoch " + str(epoch + 1) + "="*10)
 
         for i, data in enumerate(train_loader):
             input = data['image'].cuda()
@@ -291,32 +334,72 @@ def main():
             #print('[%d, %5d] loss: %.3f' %
             #    (epoch + 1, i + 1, loss))
 
-        # learning rate decay criterion
+        # compute loss for each phase
         valid_loss = get_loss(model, phase="valid").item()
+        loss_dict["valid"].append(valid_loss)
         test_loss = get_loss(model, phase="test").item()
+        loss_dict["test"].append(test_loss)
         train_loss = running_loss/train_set.__len__()
+        loss_dict["train"].append(train_loss)
 
-        print(f"training loss: \t{train_loss:.4f}")
-        print(f"valid loss: \t{valid_loss:.4f}")
-        print(f"test loss: \t{test_loss:.4f}")
+        # pict and send the graph of loss progress
+        for phase in ["train", "valid", "test"]:
+            plt.plot(np.array(loss_dict[phase]))
+        plt.xlabel("epochs")
+        plt.ylabel("loss")
+        plt.title("Loss Progress")
+        path2img = "loss_progress.png"
+        plt.savefig(path2img)
+        if(epoch%5 == 4):
+            ln.send_image_(path2img)
 
-        if (0.95 < last_valid_loss/valid_loss < 1.01):
-            lr = lr * lr_decay_gamma
-            print(f"Learning rate decay applied: lr = {lr}")
+        valid_acc = get_acc(model, phase="valid")
+        valid_accs.append(valid_acc)
 
-        last_valid_loss = valid_loss
-        model_save_path = f"./stylenet14_pretrain_{epoch}.pth"
+        print(f"training loss: \t{train_loss:.6f}")
+        print(f"valid loss: \t{valid_loss:.6f} \tvalid acc. \t{valid_acc:.6f}")
+        print(f"test loss: \t{test_loss:.6f}")
+
+        if(args.lr_decay_criterion == "validation_error"):
+            if (last_valid_acc/valid_acc > 1):
+                lr = lr * lr_decay_gamma
+                #model.load_state_dict(torch.load(f"./stylenet14_pretrain_{epoch-1}_teian_.pth"))
+                print(f"Learning rate decay applied: lr = {lr}")
+
+            last_valid_acc = valid_acc
+        else:
+            if epoch+1 % 10 == 0:
+                lr = lr * lr_decay_gamma
+                print(f"Learning rate decay applied: lr = {lr}")
+
+        model_save_path = f"./stylenet14_{epoch}_{args.method}.pth"
         torch.save(model.state_dict(), model_save_path)
 
         # training convergence criterion
-        if lr < 5e-8:
+        if lr < 1e-6:
             break
 
     test(model)
 
 if __name__ == "__main__":
-    main()
-    model = Stylenet()
-    model_path = "./stylenet14_pretrain.pth"
-    model.load_state_dict(torch.load(model_path))
-    test(model)
+    args = parse_args()
+    print("="*10+"SETTINGS"+"="*10)
+    pprint.pprint(vars(args))
+
+    if args.do_test:
+        model = Stylenet()
+        #test_model_path = f"./stylenet14_pretrain_20_{args.method}_lr5e-3.pth"
+        test_model_path = "./stylenet14_pretrain_8_wo_finetune.pth"
+        test_model_path = "stylenet14_imagenet_16_naive.pth"
+        test_model_path = "stylenet14_pretrain_99_kizon.pth"
+        #test_model_path = "stylenet14_imagenet_29_ours.pth"
+        #test_model_path = "stylenet14_imagenet_18_ours.pth"
+        test_model_path = "stylenet14_pretrain_15_kizon_.pth" # naive
+        #test_model_path = "stylenet14_imagenet_10_ours.pth" # state_of_the_art
+        #test_model_path = "stylenet14_imagenet_16_naive.pth"
+        test_model_path = "stylenet14_imagenet_9_imagenet.pth"
+        print(f"test the model: {test_model_path}")
+        model.load_state_dict(torch.load(test_model_path))
+        test(model)
+    else:
+        train(args)
