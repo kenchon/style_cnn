@@ -26,7 +26,7 @@ import pprint
 import warnings
 warnings.filterwarnings("ignore")
 
-dir = '/home/hondoh/source/FashionStyle14_v1/'
+dir = '/home/user/source/FashionStyle14_v1/'
 labels = ["conservative","dressy","ethnic","fairy","feminine","gal","girlish",
             "kireime-casual","lolita", "mode","natural","retro","rock","street"]
 transform = transforms.Compose(
@@ -388,15 +388,6 @@ if __name__ == "__main__":
 
     if args.do_test:
         model = Stylenet()
-        #test_model_path = f"./stylenet14_pretrain_20_{args.method}_lr5e-3.pth"
-        test_model_path = "./stylenet14_pretrain_8_wo_finetune.pth"
-        test_model_path = "stylenet14_imagenet_16_naive.pth"
-        test_model_path = "stylenet14_pretrain_99_kizon.pth"
-        #test_model_path = "stylenet14_imagenet_29_ours.pth"
-        #test_model_path = "stylenet14_imagenet_18_ours.pth"
-        test_model_path = "stylenet14_pretrain_15_kizon_.pth" # naive
-        #test_model_path = "stylenet14_imagenet_10_ours.pth" # state_of_the_art
-        #test_model_path = "stylenet14_imagenet_16_naive.pth"
         test_model_path = "stylenet14_imagenet_9_imagenet.pth"
         print(f"test the model: {test_model_path}")
         model.load_state_dict(torch.load(test_model_path))
